@@ -1,9 +1,7 @@
 //#[cfg(test)]
 //mod tests;
 //
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -48,51 +46,50 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<Nod
         handle
     }
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
-        // if the node was a root, it is no longer.
-        self.orphans.remove(&to);
+        // ensure both `from` and `to` exist in this graph:
+        if !(self.fwd_edges.contains_key(&from) && self.fwd_edges.contains_key(&to)) {
+            Err(())
+        } else {
+            // if `to` was an orphan, it is no longer.
+            self.orphans.remove(&to);
 
-        // add the child -> parent relationship
-        self.rev_edges.entry(to.clone())
-            .or_insert_with(HashSet::new)
-            .insert(from.clone());
+            // add the child -> parent relationship
+            self.rev_edges.entry(to.clone())
+                .or_insert_with(HashSet::new)
+                .insert(from.clone());
 
-        // add the parent -> child relationship
-        let edge = DagEdge{ to: to, user_data: data };
-        self.fwd_edges.entry(from)
-            .or_insert_with(HashSet::new)
-            .insert(edge);
+            // add the parent -> child relationship
+            let edge = DagEdge{ to: to, user_data: data };
+            self.fwd_edges.entry(from)
+                .or_insert_with(HashSet::new)
+                .insert(edge);
 
-        self.assert_acyclic()
+            self.assert_acyclic()
+        }
     }
     fn del_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
-        // TODO: if 'to' no longer has any parents, add it to `orphans`
-        // delete the parent -> child relationship
-        match self.fwd_edges.entry(from.clone()) {
-            Entry::Vacant(_) => Err(()), // edge was never in the graph
-            Entry::Occupied(mut entry) => {
-                match entry.get_mut().remove(&DagEdge{ to: to.clone(), user_data: data}) {
-                    true => Ok(()),
-                    false => Err(()), // edge not in graph.
+        // delete the child -> parent relationship
+        match self.rev_edges.get_mut(&to) {
+            None => Err(()), // edge was never in the graph
+            Some(mut entry) => {
+                match entry.remove(&from) {
+                    true => {
+                        // If there are no more incoming edges, `to` has been orphaned
+                        if entry.is_empty() {
+                            self.orphans.insert(to.clone());
+                        }
+                        Ok(())
+                    },
+                    false => Err(()), // edge not in graph
                 }
             }
         }
-        // delete the child -> parent relationship
         .and_then(|()| {
-            match self.rev_edges.entry(to.clone()) {
-                Entry::Vacant(_) => Err(()), // edge was never in the graph (impossible)
-                Entry::Occupied(mut entry) => {
-                    match entry.get_mut().remove(&from) {
-                        true => {
-                            // If there are no more incoming edges, `to` has been orphaned
-                            if entry.get_mut().is_empty() {
-                                self.orphans.insert(to);
-                            }
-                            Ok(())
-                        },
-                        false => Err(()), // edge not in graph (impossible)
-                    }
-                }
-            }
+            // delete the parent -> child relationship
+            // it's safe to unwrap this because we never leave asymmetric edges.
+            self.fwd_edges.get_mut(&from).unwrap()
+                .remove(&DagEdge{ to: to, user_data: data});
+            Ok(())
         })
     }
 }
