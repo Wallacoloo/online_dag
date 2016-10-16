@@ -34,6 +34,7 @@ type DagRevEdgeMap<NodeData> = HashMap<DagNodeHandle<NodeData>, HashSet<DagNodeH
 
 pub struct OnDag<NodeData, EdgeData> {
     fwd_edges: DagFwdEdgeMap<NodeData, EdgeData>,
+    rev_edges: DagRevEdgeMap<NodeData>,
     orphans: HashSet<DagNodeHandle<NodeData>>,
 }
 
@@ -42,37 +43,57 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<Nod
     fn add_node(&mut self, node: NodeData) -> Self::NodeHandle {
         let handle = Self::NodeHandle::new(node);
         self.orphans.insert(handle.clone());
+        self.fwd_edges.entry(handle.clone()).or_insert_with(HashSet::new);
+        self.rev_edges.entry(handle.clone()).or_insert_with(HashSet::new);
         handle
     }
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
         // if the node was a root, it is no longer.
         self.orphans.remove(&to);
+
+        // add the child -> parent relationship
+        self.rev_edges.entry(to.clone())
+            .or_insert_with(HashSet::new)
+            .insert(from.clone());
+
+        // add the parent -> child relationship
         let edge = DagEdge{ to: to, user_data: data };
         self.fwd_edges.entry(from)
             .or_insert_with(HashSet::new)
             .insert(edge);
+
         self.assert_acyclic()
     }
     fn del_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
         // TODO: if 'to' no longer has any parents, add it to `orphans`
-        match self.fwd_edges.entry(from) {
+        // delete the parent -> child relationship
+        match self.fwd_edges.entry(from.clone()) {
             Entry::Vacant(_) => Err(()), // edge was never in the graph
             Entry::Occupied(mut entry) => {
-                match entry.get_mut().remove(&DagEdge{ to: to, user_data: data}) {
-                    true => {
-                        // If there are no more outgoing edges, remove it from the map, allowing
-                        // the node to be freed.
-                        if entry.get_mut().is_empty() {
-                            entry.remove_entry();
-                        }
-                        Ok(())
-                    },
+                match entry.get_mut().remove(&DagEdge{ to: to.clone(), user_data: data}) {
+                    true => Ok(()),
                     false => Err(()), // edge not in graph.
                 }
-                // TODO: if there are no more outgoing edges on this node, we can delete the set
-                // thereby allowing the node to be freed.
             }
         }
+        // delete the child -> parent relationship
+        .and_then(|()| {
+            match self.rev_edges.entry(to.clone()) {
+                Entry::Vacant(_) => Err(()), // edge was never in the graph (impossible)
+                Entry::Occupied(mut entry) => {
+                    match entry.get_mut().remove(&from) {
+                        true => {
+                            // If there are no more incoming edges, `to` has been orphaned
+                            if entry.get_mut().is_empty() {
+                                self.orphans.insert(to);
+                            }
+                            Ok(())
+                        },
+                        false => Err(()), // edge not in graph (impossible)
+                    }
+                }
+            }
+        })
     }
 }
 
@@ -80,13 +101,14 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
     pub fn new() -> Self {
         OnDag {
             fwd_edges: DagFwdEdgeMap::new(),
+            rev_edges: DagRevEdgeMap::new(),
             orphans: HashSet::new(),
         }
     }
     /*
     /// get a copy of the edges, but avoid cloning any user-provided values, by using refs.
     /// Also, omit the edge data.
-    fn clone_edges_ref(&self) -> DagUnweightedEdgeMap<NodeData> {
+    fn clone_edges_ref(&self) -> DagnweightedEdgeMap<NodeData> {
         let mut r = DagUnweightedEdgeMap::new();
         for (ref node, ref edge_set) in self.edges.iter() {
             let mut unweighted_edges = HashSet::new();
@@ -99,18 +121,6 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
         r
     }
     */
-    /// Create a map of (child -> {parents}) relationships, without any edge weights.
-    fn get_incoming_edgemap(&self) -> DagRevEdgeMap<NodeData> {
-        let mut r = DagRevEdgeMap::new();
-        for (ref src_node, ref outgoing_edges) in self.fwd_edges.iter() {
-            for outgoing in outgoing_edges.iter() {
-                // TODO: why can't we use src_node.clone() instead of manually filling DagNodeHandle?
-                r.entry(outgoing.to.clone()).or_insert_with(HashSet::new)
-                    .insert(DagNodeHandle{ value: src_node.value.clone() });
-            }
-        }
-        r
-    }
     fn assert_acyclic(&self) -> Result<(), ()> {
         // Kahn's algorithm:
         // init `orphans` to the set of all nodes with no parents.
@@ -122,7 +132,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
 
         let mut orphans = self.orphans.clone();
         // maps (child -> {parents})
-        let mut incoming_edgemap = self.get_incoming_edgemap();
+        let mut incoming_edgemap = self.rev_edges.clone();
         while !orphans.is_empty() {
             let mut new_orphans = HashSet::new();
             for parent in orphans.drain() {
