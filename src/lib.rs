@@ -28,12 +28,12 @@ struct DagEdge<NodeData, EdgeData> {
 
 // TODO: use a small-size optimized Set, e.g. smallset
 // https://github.com/cfallin/rust-smallset/blob/master/src/lib.rs
-type DagEdgeMap<NodeData, EdgeData> = HashMap<DagNodeHandle<NodeData>, HashSet<DagEdge<NodeData, EdgeData>>>;
-type DagUnweightedEdgeMap<NodeData> = HashMap<DagNodeHandle<NodeData>, HashSet<DagNodeHandle<NodeData>>>;
+type DagFwdEdgeMap<NodeData, EdgeData> = HashMap<DagNodeHandle<NodeData>, HashSet<DagEdge<NodeData, EdgeData>>>;
+type DagRevEdgeMap<NodeData> = HashMap<DagNodeHandle<NodeData>, HashSet<DagNodeHandle<NodeData>>>;
 
 
 pub struct OnDag<NodeData, EdgeData> {
-    fwd_edges: DagEdgeMap<NodeData, EdgeData>,
+    fwd_edges: DagFwdEdgeMap<NodeData, EdgeData>,
     orphans: HashSet<DagNodeHandle<NodeData>>,
 }
 
@@ -79,7 +79,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<Nod
 impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
     pub fn new() -> Self {
         OnDag {
-            fwd_edges: DagEdgeMap::new(),
+            fwd_edges: DagFwdEdgeMap::new(),
             orphans: HashSet::new(),
         }
     }
@@ -100,8 +100,8 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
     }
     */
     /// Create a map of (child -> {parents}) relationships, without any edge weights.
-    fn get_incoming_edgemap(&self) -> DagUnweightedEdgeMap<NodeData> {
-        let mut r = DagUnweightedEdgeMap::new();
+    fn get_incoming_edgemap(&self) -> DagRevEdgeMap<NodeData> {
+        let mut r = DagRevEdgeMap::new();
         for (ref src_node, ref outgoing_edges) in self.fwd_edges.iter() {
             for outgoing in outgoing_edges.iter() {
                 // TODO: why can't we use src_node.clone() instead of manually filling DagNodeHandle?
