@@ -33,7 +33,7 @@ type DagUnweightedEdgeMap<NodeData> = HashMap<DagNodeHandle<NodeData>, HashSet<D
 
 
 pub struct OnDag<NodeData, EdgeData> {
-    edges: DagEdgeMap<NodeData, EdgeData>,
+    fwd_edges: DagEdgeMap<NodeData, EdgeData>,
     orphans: HashSet<DagNodeHandle<NodeData>>,
 }
 
@@ -48,14 +48,14 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<Nod
         // if the node was a root, it is no longer.
         self.orphans.remove(&to);
         let edge = DagEdge{ to: to, user_data: data };
-        self.edges.entry(from)
+        self.fwd_edges.entry(from)
             .or_insert_with(HashSet::new)
             .insert(edge);
         self.assert_acyclic()
     }
     fn del_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
         // TODO: if 'to' no longer has any parents, add it to `orphans`
-        match self.edges.entry(from) {
+        match self.fwd_edges.entry(from) {
             Entry::Vacant(_) => Err(()), // edge was never in the graph
             Entry::Occupied(mut entry) => {
                 match entry.get_mut().remove(&DagEdge{ to: to, user_data: data}) {
@@ -79,7 +79,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<Nod
 impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
     pub fn new() -> Self {
         OnDag {
-            edges: DagEdgeMap::new(),
+            fwd_edges: DagEdgeMap::new(),
             orphans: HashSet::new(),
         }
     }
@@ -102,7 +102,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
     /// Create a map of (child -> {parents}) relationships, without any edge weights.
     fn get_incoming_edgemap(&self) -> DagUnweightedEdgeMap<NodeData> {
         let mut r = DagUnweightedEdgeMap::new();
-        for (ref src_node, ref outgoing_edges) in self.edges.iter() {
+        for (ref src_node, ref outgoing_edges) in self.fwd_edges.iter() {
             for outgoing in outgoing_edges.iter() {
                 // TODO: why can't we use src_node.clone() instead of manually filling DagNodeHandle?
                 r.entry(outgoing.to.clone()).or_insert_with(HashSet::new)
@@ -128,7 +128,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
             for parent in orphans.drain() {
                 // if the node has outgoing edges, iter them and remove the
                 // symmetric incoming edges.
-                if let Some(children) = self.edges.get(&parent) {
+                if let Some(children) = self.fwd_edges.get(&parent) {
                     for outgoing_edge in children.iter() {
                         // delete the child -> parent relation
                         // note: unwrap = OK, else the incoming_edgemap was created incorrectly.
