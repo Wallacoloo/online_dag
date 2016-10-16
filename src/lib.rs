@@ -34,19 +34,19 @@ type DagUnweightedEdgeMap<NodeData> = HashMap<DagNodeHandle<NodeData>, HashSet<D
 
 pub struct OnDag<NodeData, EdgeData> {
     edges: DagEdgeMap<NodeData, EdgeData>,
-    roots: HashSet<DagNodeHandle<NodeData>>,
+    orphans: HashSet<DagNodeHandle<NodeData>>,
 }
 
 impl <NodeData : Eq, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<NodeData, EdgeData> {
     type NodeHandle = DagNodeHandle<NodeData>;
     fn add_node(&mut self, node: NodeData) -> Self::NodeHandle {
         let handle = Self::NodeHandle::new(node);
-        self.roots.insert(handle.clone());
+        self.orphans.insert(handle.clone());
         handle
     }
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
         // if the node was a root, it is no longer.
-        self.roots.remove(&to);
+        self.orphans.remove(&to);
         let edge = DagEdge{ to: to, user_data: data };
         self.edges.entry(from)
             .or_insert_with(HashSet::new)
@@ -54,7 +54,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<Nod
         self.assert_acyclic()
     }
     fn del_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
-        // TODO: if 'to' no longer has any parents, add it to `roots`
+        // TODO: if 'to' no longer has any parents, add it to `orphans`
         match self.edges.entry(from) {
             Entry::Vacant(_) => Err(()), // edge was never in the graph
             Entry::Occupied(mut entry) => {
@@ -80,7 +80,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
     pub fn new() -> Self {
         OnDag {
             edges: DagEdgeMap::new(),
-            roots: HashSet::new(),
+            orphans: HashSet::new(),
         }
     }
     /*
@@ -120,7 +120,7 @@ impl <NodeData : Eq, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
         //        edges, add them to `orphans`.
         // If there are no remaining edges, then the graph is acyclic.
 
-        let mut orphans = self.roots.clone();
+        let mut orphans = self.orphans.clone();
         // maps (child -> {parents})
         let mut incoming_edgemap = self.get_incoming_edgemap();
         while !orphans.is_empty() {
