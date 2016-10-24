@@ -31,6 +31,10 @@ struct DagNode<NodeData, EdgeData> {
     children: HashSet<DagEdge<NodeData, EdgeData>>,
 }
 
+struct DagIter<N, E> {
+    stack: Vec<HashSet<DagEdge<N, E>>::Iter>,
+}
+
 // TODO: use a small-size optimized Set, e.g. smallset
 // https://github.com/cfallin/rust-smallset/blob/master/src/lib.rs
 
