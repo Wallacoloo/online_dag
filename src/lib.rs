@@ -49,7 +49,7 @@ impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for On
     }
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
         let to_node = to.node.borrow();
-        if self.is_reachable(&to, &from) {
+        if self.is_reachable(&from, &to) {
             // there is a path from `to` to `from`, so adding an edge `from` -> `to` will introduce
             // a cycle.
             Err(())
@@ -75,9 +75,9 @@ impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
             node.borrow().children.iter()
     }*/
     /// Return true if and only if `search` is reachable from (or is equal to) `base`
-    fn is_reachable(&self, base: &DagNodeHandle<N, E>, search: &DagNodeHandle<N, E>) -> bool {
+    fn is_reachable(&self, search: &DagNodeHandle<N, E>, base: &DagNodeHandle<N, E>) -> bool {
         (base == search) || base.node.borrow().children.iter().any(|ch| {
-            self.is_reachable(&ch.to, search)
+            self.is_reachable(search, &ch.to)
         })
     }
 }
