@@ -3,8 +3,9 @@
 //#[cfg(test)]
 //mod tests;
 //
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref};
 use std::collections::HashSet;
+use std::collections::hash_set;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -31,10 +32,6 @@ struct DagNode<NodeData, EdgeData> {
     children: HashSet<DagEdge<NodeData, EdgeData>>,
 }
 
-struct DagIter<N, E> {
-    stack: Vec<HashSet<DagEdge<N, E>>::Iter>,
-}
-
 // TODO: use a small-size optimized Set, e.g. smallset
 // https://github.com/cfallin/rust-smallset/blob/master/src/lib.rs
 
@@ -52,18 +49,15 @@ impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for On
     }
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
         let to_node = to.node.borrow();
-        /*if to_node.iter_depth_first().any(|node| { node == &from }) {
+        if self.is_reachable(&to, &from) {
             // there is a path from `to` to `from`, so adding an edge `from` -> `to` will introduce
             // a cycle.
             Err(())
         } else {
             // add the parent -> child link:
             from.node.borrow_mut().children.insert(DagEdge::new(to.clone(), data));
-            // add the child -> parent link:
-            to.node.borrow_mut().parents.insert(from.clone());
             Ok(())
-        }*/
-        Ok(())
+        }
     }
     fn del_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
         // delete the parent -> child relationship:
@@ -80,6 +74,12 @@ impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
             let ref node = start_edge.to.node;
             node.borrow().children.iter()
     }*/
+    /// Return true if and only if `search` is reachable from (or is equal to) `base`
+    fn is_reachable(&self, base: &DagNodeHandle<N, E>, search: &DagNodeHandle<N, E>) -> bool {
+        (base == search) || base.node.borrow().children.iter().any(|ch| {
+            self.is_reachable(&ch.to, search)
+        })
+    }
 }
 
 impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
@@ -149,3 +149,4 @@ impl<N, E : Hash> Hash for DagEdge<N, E> {
         self.weight.hash(state)
     }
 }
+
