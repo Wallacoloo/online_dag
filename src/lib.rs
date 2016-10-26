@@ -81,12 +81,14 @@ impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
         // The depth-first ordering goes highest -> least depth, so reverse that.
         ordered.into_iter().rev()
     }
-    fn depth_first_sort(&self, node: &DagNodeHandle<N, E>, ordered: &mut Vec<DagNodeHandle<N, E>>, marked: &mut HashSet<DagNodeHandle<N, E>>) {
-        for edge in node.node.borrow().children.iter() {
-            self.depth_first_sort(&edge.to, ordered, marked);
+    fn depth_first_sort(&self, node: &DagNodeHandle<N, E>, ordered: &mut Vec<DagNodeHandle<N, E>>, marked: &mut HashSet<*const DagNode<N, E>>) {
+        if !marked.contains(&(&*node.node.borrow() as *const DagNode<N, E>)) {
+            for edge in node.node.borrow().children.iter() {
+                self.depth_first_sort(&edge.to, ordered, marked);
+            }
+            marked.insert(&*node.node.borrow());
+            ordered.push(node.clone());
         }
-        marked.insert(node.clone());
-        ordered.push(node.clone());
     }
 }
 
@@ -105,20 +107,6 @@ impl<N : Eq + Hash, E : Eq + Hash> DagNode<N, E> {
             children: HashSet::new(),
         }
     }
-    /*fn iter_depth_first<'a>(&'a self) -> impl Iterator<Item=&'a DagEdge<N, E>> + 'a {
-        // for each child, yield it and then iter its children
-        self.children.iter().flat_map(|ref edge| {
-            edge.to.node.borrow().iter_depth_first()
-        })
-    }*/
-    /*fn iter_depth_first<'a>(&'a self) -> impl iterator<item=&'a dagnodehandle<n, e>> + 'a {
-        // for each child, yield it and then iter its children
-        self.children.iter().flat_map(|ref child| {
-            let child_to_node = child.to.node.borrow();
-            some(&child.to).into_iter()
-            .chain(child_to_node.iter_depth_first())
-        })
-    }*/
 }
 
 impl<N, E> Clone for DagNodeHandle<N, E> {
@@ -144,6 +132,7 @@ impl<N, E> DagNodeHandle<N, E> {
         DagNodeHandle{ node: Rc::new(RefCell::new(node))}
     }
 }
+
 
 impl<N, E> DagEdge<N, E> {
     fn new(to: DagNodeHandle<N, E>, weight: E) -> Self {
