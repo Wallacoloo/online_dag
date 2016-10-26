@@ -3,9 +3,8 @@
 //#[cfg(test)]
 //mod tests;
 //
-use std::cell::{RefCell, Ref};
+use std::cell::RefCell;
 use std::collections::HashSet;
-use std::collections::hash_set;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -48,7 +47,6 @@ impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for On
         handle
     }
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
-        let to_node = to.node.borrow();
         if self.is_reachable(&from, &to) {
             // there is a path from `to` to `from`, so adding an edge `from` -> `to` will introduce
             // a cycle.
@@ -67,18 +65,28 @@ impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for On
 }
 
 impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
-    /*fn iter_depth_first(&self) -> impl Iterator<Item=DagNodeHandle<NodeData, EdgeData>> {
-        self.root.value.iter_depth_first()
-    }*/
-    /*fn iter_edges<'a>(&'a self, start_edge: &'a DagEdge<N, E>) -> impl Iterator<Item=&'a DagEdge<N, E>> + 'a {
-            let ref node = start_edge.to.node;
-            node.borrow().children.iter()
-    }*/
     /// Return true if and only if `search` is reachable from (or is equal to) `base`
     fn is_reachable(&self, search: &DagNodeHandle<N, E>, base: &DagNodeHandle<N, E>) -> bool {
         (base == search) || base.node.borrow().children.iter().any(|ch| {
             self.is_reachable(search, &ch.to)
         })
+    }
+    /// Compute the topological ordering of `self`.
+    pub fn topo_sort(&self) -> impl Iterator<Item=DagNodeHandle<N, E>> {
+        // internally, do a depth-first search & reverse the results.
+        let mut ordered = vec![];
+        self.depth_first_sort(&self.root, &mut ordered, &mut HashSet::new());
+        // The depth-first ordering goes highest -> least depth, so reverse that.
+        ordered.into_iter().rev()
+    }
+    fn depth_first_sort(&self, node: &DagNodeHandle<N, E>, ordered: &mut Vec<DagNodeHandle<N, E>>, marked: &mut HashSet<*const DagNode<N, E>>) {
+        if !marked.contains(&(&*node.node.borrow() as *const DagNode<N, E>)) {
+            for edge in node.node.borrow().children.iter() {
+                self.depth_first_sort(&edge.to, ordered, marked);
+            }
+            marked.insert(&*node.node.borrow());
+            ordered.push(node.clone());
+        }
     }
 }
 
@@ -97,20 +105,6 @@ impl<N : Eq + Hash, E : Eq + Hash> DagNode<N, E> {
             children: HashSet::new(),
         }
     }
-    /*fn iter_depth_first<'a>(&'a self) -> impl Iterator<Item=&'a DagEdge<N, E>> + 'a {
-        // for each child, yield it and then iter its children
-        self.children.iter().flat_map(|ref edge| {
-            edge.to.node.borrow().iter_depth_first()
-        })
-    }*/
-    /*fn iter_depth_first<'a>(&'a self) -> impl iterator<item=&'a dagnodehandle<n, e>> + 'a {
-        // for each child, yield it and then iter its children
-        self.children.iter().flat_map(|ref child| {
-            let child_to_node = child.to.node.borrow();
-            some(&child.to).into_iter()
-            .chain(child_to_node.iter_depth_first())
-        })
-    }*/
 }
 
 impl<N, E> Clone for DagNodeHandle<N, E> {
@@ -136,6 +130,7 @@ impl<N, E> DagNodeHandle<N, E> {
         DagNodeHandle{ node: Rc::new(RefCell::new(node))}
     }
 }
+
 
 impl<N, E> DagEdge<N, E> {
     fn new(to: DagNodeHandle<N, E>, weight: E) -> Self {
