@@ -3,11 +3,10 @@
 //#[cfg(test)]
 //mod tests;
 //
-use std::cell::{RefCell, Ref};
+use std::cell::RefCell;
 use std::collections::HashSet;
-use std::collections::hash_set;
 use std::hash::{Hash, Hasher};
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 
 pub trait Dag<NodeData : Eq + Hash, EdgeData : Eq + Hash> {
@@ -48,7 +47,6 @@ impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for On
         handle
     }
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
-        let to_node = to.node.borrow();
         if self.is_reachable(&from, &to) {
             // there is a path from `to` to `from`, so adding an edge `from` -> `to` will introduce
             // a cycle.
