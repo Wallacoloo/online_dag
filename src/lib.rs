@@ -1,27 +1,30 @@
 //#![cfg(unstable)]
+// Requires feature-gate for returning impl Iterator
 #![feature(conservative_impl_trait)]
-//#[cfg(test)]
-//mod tests;
-//
+
+#[cfg(test)]
+mod tests;
+
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 
-pub trait Dag<NodeData : Eq + Hash, EdgeData : Eq + Hash> {
+pub trait Dag<NodeData : Eq + Hash, EdgeData : Eq + Hash + Clone> {
     type NodeHandle;
     fn add_node(&mut self, node: NodeData) -> Self::NodeHandle;
     fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()>;
-    fn del_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()>;
+    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()>;
+    fn root(&self) -> Self::NodeHandle;
 }
 
 pub struct DagNodeHandle<NodeData, EdgeData> {
     node: Rc<RefCell<DagNode<NodeData, EdgeData>>>,
 }
 
-#[derive(PartialEq, Eq)]
-struct DagEdge<NodeData, EdgeData> {
+#[derive(PartialEq, Eq, Clone)]
+pub struct DagEdge<NodeData, EdgeData> {
     to: DagNodeHandle<NodeData, EdgeData>,
     weight: EdgeData,
 }
@@ -29,6 +32,7 @@ struct DagEdge<NodeData, EdgeData> {
 struct DagNode<NodeData, EdgeData> {
     value: NodeData,
     children: HashSet<DagEdge<NodeData, EdgeData>>,
+    parents: HashSet<DagEdge<NodeData, EdgeData>>,
 }
 
 // TODO: use a small-size optimized Set, e.g. smallset
@@ -40,7 +44,7 @@ pub struct OnDag<NodeData, EdgeData> {
     root: DagNodeHandle<NodeData, EdgeData>,
 }
 
-impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for OnDag<NodeData, EdgeData> {
+impl <NodeData : Eq + Hash, EdgeData : Eq + Hash + Clone> Dag<NodeData, EdgeData> for OnDag<NodeData, EdgeData> {
     type NodeHandle = DagNodeHandle<NodeData, EdgeData>;
     fn add_node(&mut self, node_data: NodeData) -> Self::NodeHandle {
         let handle = Self::NodeHandle::new(DagNode::new(node_data));
@@ -53,14 +57,20 @@ impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> Dag<NodeData, EdgeData> for On
             Err(())
         } else {
             // add the parent -> child link:
-            from.node.borrow_mut().children.insert(DagEdge::new(to.clone(), data));
+            from.node.borrow_mut().children.insert(DagEdge::new(to.clone(), data.clone()));
+            // add child -> parent link
+            to.node.borrow_mut().parents.insert(DagEdge::new(from.clone(), data));
             Ok(())
         }
     }
-    fn del_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
+    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
         // delete the parent -> child relationship:
-        from.node.borrow_mut().children.remove(&DagEdge::new(to.clone(), data));
+        from.node.borrow_mut().children.remove(&DagEdge::new(to.clone(), data.clone()));
+        to.node.borrow_mut().parents.remove(&DagEdge::new(from.clone(), data));
         Ok(())
+    }
+    fn root(&self) -> Self::NodeHandle {
+        self.root.clone()
     }
 }
 
@@ -103,6 +113,7 @@ impl<N : Eq + Hash, E : Eq + Hash> DagNode<N, E> {
         DagNode {
             value: value,
             children: HashSet::new(),
+            parents: HashSet::new(),
         }
     }
 }
@@ -128,6 +139,25 @@ impl<N, E> Eq for DagNodeHandle<N, E> {}
 impl<N, E> DagNodeHandle<N, E> {
     fn new(node: DagNode<N, E>) -> Self {
         DagNodeHandle{ node: Rc::new(RefCell::new(node))}
+    }
+}
+
+impl<N : Clone, E> DagNodeHandle<N, E> {
+    /// Access the node's data via cloning it (potentially costly). Doesn't require a ref to the tree.
+    pub fn node(&self) -> N {
+        self.node.borrow().value.clone()
+    }
+}
+impl<N : Clone, E : Clone> DagNodeHandle<N, E> {
+    /// Access the node's children via cloning the data structure linking to them (potentially
+    /// costly). Doesn't require a ref to the tree.
+    fn children(&self) -> HashSet<DagEdge<N, E>> {
+        self.node.borrow().children.clone()
+    }
+    /// Access the node's parents via cloning the data structure linking to them (potentially
+    /// costly). Doesn't require a ref to the tree.
+    fn parents(&self) -> HashSet<DagEdge<N, E>> {
+        self.node.borrow().parents.clone()
     }
 }
 
