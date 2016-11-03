@@ -78,12 +78,20 @@ impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
         })
     }
     /// Compute the topological ordering of `self`.
-    pub fn topo_sort(&self) -> impl Iterator<Item=DagNodeHandle<N, E>> {
-        // internally, do a depth-first search & reverse the results.
+    pub fn iter_topo(&self) -> impl Iterator<Item=DagNodeHandle<N, E>> {
+        // just a depth-first sort, but then reverse the results.
         let mut ordered = vec![];
         self.depth_first_sort(&self.root, &mut ordered, &mut HashSet::new());
         // The depth-first ordering goes highest -> least depth, so reverse that.
         ordered.into_iter().rev()
+    }
+    /// Compute the *reverse* topological ordering of `self`, i.e. children -> root
+    pub fn iter_topo_rev(&self) -> impl Iterator<Item=DagNodeHandle<N, E>> {
+        // just a depth-first sort:
+        let mut ordered = vec![];
+        self.depth_first_sort(&self.root, &mut ordered, &mut HashSet::new());
+        // The depth-first ordering goes highest -> least depth, so reverse that.
+        ordered.into_iter()
     }
     fn depth_first_sort(&self, node: &DagNodeHandle<N, E>, ordered: &mut Vec<DagNodeHandle<N, E>>, marked: &mut HashSet<*const DagNode<N, E>>) {
         if !marked.contains(&(&*node.node.borrow() as *const DagNode<N, E>)) {
