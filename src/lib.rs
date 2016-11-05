@@ -15,8 +15,8 @@ use std::rc::Rc;
 pub trait Dag<N : Eq + Hash, E : Eq + Hash + Clone> {
     type NodeHandle;
     fn add_node(&mut self, node: N) -> Self::NodeHandle;
-    fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(),()>;
-    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(),()>;
+    fn add_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(),()>;
+    fn rm_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(),()>;
 }
 
 pub struct DagNodeHandle<N, E> {
@@ -55,7 +55,7 @@ impl <N : Eq + Hash, E : Eq + Hash + Clone> Dag<N, E> for OnDag<N, E> {
         let handle = Self::NodeHandle::new(self, DagNode::new(node_data));
         handle
     }
-    fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(),()> {
+    fn add_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(),()> {
         // the edge must connect two nodes owned by *this* graph.
         assert_eq!(from.owner, self as *const Self);
         assert_eq!(to.owner, self as *const Self);
@@ -69,11 +69,12 @@ impl <N : Eq + Hash, E : Eq + Hash + Clone> Dag<N, E> for OnDag<N, E> {
             Ok(())
         }
     }
-    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(), ()> {
+    fn rm_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(), ()> {
         // the edge must belong to *this* graph.
         assert_eq!(from.owner, self as *const Self);
         assert_eq!(to.owner, self as *const Self);
         // delete the parent -> child relationship:
+        // TODO: should be possible to remove w/o cloning the references.
         from.node.borrow_mut().children.remove(&DagEdge::new(to.clone(), data.clone()));
         Ok(())
     }
