@@ -8,48 +8,54 @@ mod tests;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 
-pub trait Dag<NodeData : Eq + Hash, EdgeData : Eq + Hash + Clone> {
+pub trait Dag<N : Eq + Hash, E : Eq + Hash + Clone> {
     type NodeHandle;
-    fn add_node(&mut self, node: NodeData) -> Self::NodeHandle;
-    fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()>;
-    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()>;
-    fn root(&self) -> Self::NodeHandle;
+    fn add_node(&mut self, node: N) -> Self::NodeHandle;
+    fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(),()>;
+    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(),()>;
 }
 
-pub struct DagNodeHandle<NodeData, EdgeData> {
-    node: Rc<RefCell<DagNode<NodeData, EdgeData>>>,
+pub struct DagNodeHandle<N, E> {
+    node: Rc<RefCell<DagNode<N, E>>>,
 }
 
 #[derive(PartialEq, Eq, Clone)]
-pub struct DagEdge<NodeData, EdgeData> {
-    to: DagNodeHandle<NodeData, EdgeData>,
-    weight: EdgeData,
+pub struct DagEdge<N, E> {
+    to: DagNodeHandle<N, E>,
+    weight: E,
 }
 
-struct DagNode<NodeData, EdgeData> {
-    value: NodeData,
-    children: HashSet<DagEdge<NodeData, EdgeData>>,
+struct DagNode<N, E> {
+    value: N,
+    children: HashSet<DagEdge<N, E>>,
+    /// keep a pointer to the tree owner to enforce mutability rules across multiple trees.
+    owner: *const OnDag<N, E>,
 }
 
 // TODO: use a small-size optimized Set, e.g. smallset
 // https://github.com/cfallin/rust-smallset/blob/master/src/lib.rs
 
-pub struct OnDag<NodeData, EdgeData> {
-    // even though the root can't have any parents, we need to keep this as a
-    // DagNodeHandle type for yielding during iteration (etc).
-    root: DagNodeHandle<NodeData, EdgeData>,
+/// Note: these graphs don't necessarily have explicit roots. It's the user's job to keep handles
+/// to root nodes in order to iterate them, etc.
+pub struct OnDag<N, E> {
+    /// The DAG doesn't actually store any nodes/edges - it just creates them and hands out
+    /// handles. PhantomData allows the type parameters to not be used in the struct (just impl)
+    /// w/o error.
+    node_type: PhantomData<N>,
+    edge_type: PhantomData<E>,
 }
 
-impl <NodeData : Eq + Hash, EdgeData : Eq + Hash + Clone> Dag<NodeData, EdgeData> for OnDag<NodeData, EdgeData> {
-    type NodeHandle = DagNodeHandle<NodeData, EdgeData>;
-    fn add_node(&mut self, node_data: NodeData) -> Self::NodeHandle {
-        let handle = Self::NodeHandle::new(DagNode::new(node_data));
+impl <N : Eq + Hash, E : Eq + Hash + Clone> Dag<N, E> for OnDag<N, E> {
+    type NodeHandle = DagNodeHandle<N, E>;
+    fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
+        let handle = Self::NodeHandle::new(DagNode::new(self, node_data));
         handle
     }
-    fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(),()> {
+    fn add_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(),()> {
         if self.is_reachable(&from, &to) {
             // there is a path from `to` to `from`, so adding an edge `from` -> `to` will introduce
             // a cycle.
@@ -60,13 +66,10 @@ impl <NodeData : Eq + Hash, EdgeData : Eq + Hash + Clone> Dag<NodeData, EdgeData
             Ok(())
         }
     }
-    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: EdgeData) -> Result<(), ()> {
+    fn rm_edge(&mut self, from: Self::NodeHandle, to: Self::NodeHandle, data: E) -> Result<(), ()> {
         // delete the parent -> child relationship:
         from.node.borrow_mut().children.remove(&DagEdge::new(to.clone(), data.clone()));
         Ok(())
-    }
-    fn root(&self) -> Self::NodeHandle {
-        self.root.clone()
     }
 }
 
@@ -78,19 +81,20 @@ impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
         })
     }
     /// Compute the topological ordering of `self`.
-    pub fn iter_topo(&self) -> impl Iterator<Item=DagNodeHandle<N, E>> {
+    pub fn iter_topo(&self, from: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagNodeHandle<N, E>> {
         // just a depth-first sort, but then reverse the results.
         let mut ordered = vec![];
-        self.depth_first_sort(&self.root, &mut ordered, &mut HashSet::new());
+        self.depth_first_sort(from, &mut ordered, &mut HashSet::new());
         // The depth-first ordering goes highest -> least depth, so reverse that.
         ordered.into_iter().rev()
     }
     /// Compute the *reverse* topological ordering of `self`, i.e. children -> root
-    pub fn iter_topo_rev(&self) -> impl Iterator<Item=DagNodeHandle<N, E>> {
+    pub fn iter_topo_rev(&self, from: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagNodeHandle<N, E>> {
         // just a depth-first sort:
+        // TODO: we can achieve this with lower latency by moving it into an iterator.
         let mut ordered = vec![];
-        self.depth_first_sort(&self.root, &mut ordered, &mut HashSet::new());
-        // The depth-first ordering goes highest -> least depth, so reverse that.
+        self.depth_first_sort(from, &mut ordered, &mut HashSet::new());
+        // The depth-first ordering goes highest -> least depth
         ordered.into_iter()
     }
     fn depth_first_sort(&self, node: &DagNodeHandle<N, E>, ordered: &mut Vec<DagNodeHandle<N, E>>, marked: &mut HashSet<*const DagNode<N, E>>) {
@@ -104,19 +108,21 @@ impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
     }
 }
 
-impl <NodeData : Eq + Hash, EdgeData : Eq + Hash> OnDag<NodeData, EdgeData> {
-    pub fn new(node_data: NodeData) -> Self {
+impl <N : Eq + Hash, E : Eq + Hash> OnDag<N, E> {
+    pub fn new() -> Self {
         OnDag {
-            root: DagNodeHandle::new(DagNode::new(node_data)),
+            node_type: PhantomData,
+            edge_type: PhantomData,
         }
     }
 }
 
 impl<N : Eq + Hash, E : Eq + Hash> DagNode<N, E> {
-    fn new(value: N) -> Self {
+    fn new(owner: &OnDag<N, E>, value: N) -> Self {
         DagNode {
             value: value,
             children: HashSet::new(),
+            owner: owner as *const OnDag<N, E>,
         }
     }
 }
