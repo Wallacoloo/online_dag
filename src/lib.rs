@@ -117,6 +117,15 @@ impl <N: Eq, E: Eq + Hash> OnDag<N, E> {
         }
     }
 }
+impl <N: Eq + Clone, E: Eq + Hash + Clone> OnDag<N, E> {
+    /// iterate all of the outgoing edges of this node.
+    pub fn children(&self, node: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
+        // we must own the node of interest.
+        assert_eq!(node.owner, self as *const Self);
+        // TODO: make an iterator object that borrows self & avoids cloning children
+        node.node.borrow().children.clone().into_iter()
+    }
+}
 
 impl <N : Eq + Hash, E : Eq + Hash> OnDag<N, E> {
     pub fn new() -> Self {
@@ -170,13 +179,6 @@ impl<N : Clone, E> DagNodeHandle<N, E> {
     /// Access the node's data via cloning it (potentially costly). Doesn't require a ref to the tree.
     pub fn node(&self) -> N {
         self.node.borrow().value.clone()
-    }
-}
-impl<N : Clone, E : Clone> DagNodeHandle<N, E> {
-    /// Access the node's children via cloning the data structure linking to them (potentially
-    /// costly). Doesn't require a ref to the tree.
-    fn children(&self) -> HashSet<DagEdge<N, E>> {
-        self.node.borrow().children.clone()
     }
 }
 
