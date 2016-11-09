@@ -13,7 +13,7 @@ pub struct DagNodeHandle<N, E> {
     owner: *const RcDag<N, E>,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq)]
 pub struct DagEdge<N, E> {
     to: DagNodeHandle<N, E>,
     weight: E,
@@ -106,7 +106,7 @@ impl <N: Eq, E: Eq + Hash> RcDag<N, E> {
         }
     }
 }
-impl <N: Eq + Clone, E: Eq + Hash + Clone> RcDag<N, E> {
+impl <N: Eq, E: Eq + Hash + Clone> RcDag<N, E> {
     /// iterate all of the outgoing edges of this node.
     pub fn children(&self, node: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
         // we must own the node of interest.
@@ -185,3 +185,13 @@ impl<N, E : Hash> Hash for DagEdge<N, E> {
     }
 }
 
+// Yes, this is identical to the default Clone implementation,
+// but the default impl requires N to also be cloneable.
+impl<N, E : Clone> Clone for DagEdge<N, E> {
+    fn clone(&self) -> Self {
+        DagEdge {
+            to: self.to.clone(),
+            weight: self.weight.clone(),
+        }
+    }
+}
