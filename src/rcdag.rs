@@ -37,7 +37,7 @@ pub struct RcDag<N, E> {
     edge_type: PhantomData<E>,
 }
 
-impl <N : Eq + Hash, E : Eq + Hash + Clone> OnDag<N, E> for RcDag<N, E> {
+impl <N : Eq, E : Eq + Hash + Clone> OnDag<N, E> for RcDag<N, E> {
     type NodeHandle = DagNodeHandle<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         let handle = Self::NodeHandle::new(self, DagNode::new(node_data));
@@ -116,7 +116,7 @@ impl <N: Eq + Clone, E: Eq + Hash + Clone> RcDag<N, E> {
     }
 }
 
-impl <N : Eq + Hash, E : Eq + Hash> RcDag<N, E> {
+impl <N : Eq, E : Eq + Hash> RcDag<N, E> {
     pub fn new() -> Self {
         RcDag {
             node_type: PhantomData,
@@ -125,7 +125,7 @@ impl <N : Eq + Hash, E : Eq + Hash> RcDag<N, E> {
     }
 }
 
-impl<N : Eq + Hash, E : Eq + Hash> DagNode<N, E> {
+impl<N : Eq, E : Eq + Hash> DagNode<N, E> {
     fn new(value: N) -> Self {
         DagNode {
             value: value,
