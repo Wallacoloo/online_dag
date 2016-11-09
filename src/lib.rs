@@ -4,5 +4,5 @@
 #[cfg(test)]
 mod tests;
 
-mod ondag;
-mod rcdag;
+pub mod ondag;
+pub mod rcdag;
