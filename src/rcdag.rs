@@ -53,7 +53,7 @@ impl <N : Eq + Hash, E : Eq + Hash + Clone> OnDag<N, E> for RcDag<N, E> {
             Err(())
         } else {
             // add the parent -> child link:
-            from.node.borrow_mut().children.insert(DagEdge::new(to.clone(), data.clone()));
+            from.node.borrow_mut().children.insert(DagEdge::new(to.clone(), data));
             Ok(())
         }
     }
@@ -63,7 +63,7 @@ impl <N : Eq + Hash, E : Eq + Hash + Clone> OnDag<N, E> for RcDag<N, E> {
         assert_eq!(to.owner, self as *const Self);
         // delete the parent -> child relationship:
         // TODO: should be possible to remove w/o cloning the references.
-        from.node.borrow_mut().children.remove(&DagEdge::new(to.clone(), data.clone()));
+        from.node.borrow_mut().children.remove(&DagEdge::new(to.clone(), data));
         Ok(())
     }
 }
