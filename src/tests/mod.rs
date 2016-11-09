@@ -1,7 +1,7 @@
-use ::OnDag;
-use ::Dag;
+use ::ondag::OnDag;
+use ::rcdag::RcDag;
 
-type MyDag = OnDag<u32, u32>;
+type MyDag = RcDag<u32, u32>;
 
 
 #[test]
