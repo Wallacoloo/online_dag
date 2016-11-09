@@ -37,7 +37,7 @@ pub struct RcDag<N, E> {
     edge_type: PhantomData<E>,
 }
 
-impl <N : Eq, E : Eq + Hash + Clone> OnDag<N, E> for RcDag<N, E> {
+impl <N : Eq, E : Eq + Clone> OnDag<N, E> for RcDag<N, E> {
     type NodeHandle = DagNodeHandle<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         let handle = Self::NodeHandle::new(self, DagNode::new(node_data));
@@ -68,7 +68,7 @@ impl <N : Eq, E : Eq + Hash + Clone> OnDag<N, E> for RcDag<N, E> {
     }
 }
 
-impl <N: Eq, E: Eq + Hash> RcDag<N, E> {
+impl <N: Eq, E: Eq> RcDag<N, E> {
     /// Return true if and only if `search` is reachable from (or is equal to) `base`
     fn is_reachable(&self, search: &DagNodeHandle<N, E>, base: &DagNodeHandle<N, E>) -> bool {
         (base == search) || base.node.borrow().children.iter().any(|ch| {
@@ -106,7 +106,7 @@ impl <N: Eq, E: Eq + Hash> RcDag<N, E> {
         }
     }
 }
-impl <N: Eq, E: Eq + Hash + Clone> RcDag<N, E> {
+impl <N: Eq, E: Eq + Clone> RcDag<N, E> {
     /// iterate all of the outgoing edges of this node.
     pub fn children(&self, node: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
         // we must own the node of interest.
@@ -116,7 +116,7 @@ impl <N: Eq, E: Eq + Hash + Clone> RcDag<N, E> {
     }
 }
 
-impl <N : Eq, E : Eq + Hash> RcDag<N, E> {
+impl <N : Eq, E : Eq> RcDag<N, E> {
     pub fn new() -> Self {
         RcDag {
             node_type: PhantomData,
@@ -125,7 +125,7 @@ impl <N : Eq, E : Eq + Hash> RcDag<N, E> {
     }
 }
 
-impl<N : Eq, E : Eq + Hash> DagNode<N, E> {
+impl<N : Eq, E : Eq> DagNode<N, E> {
     fn new(value: N) -> Self {
         DagNode {
             value: value,
@@ -178,10 +178,11 @@ impl<N, E> DagEdge<N, E> {
     }
 }
 
-impl<N, E : Hash> Hash for DagEdge<N, E> {
+impl<N, E> Hash for DagEdge<N, E> {
     fn hash<H>(&self, state: &mut H)  where H: Hasher {
+        // we don't really need to hash the edge; few use-cases have many
+        // overlapping edges with different weights.
         self.to.hash(state);
-        self.weight.hash(state)
     }
 }
 
