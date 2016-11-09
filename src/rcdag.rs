@@ -13,7 +13,6 @@ pub struct DagNodeHandle<N, E> {
     owner: *const RcDag<N, E>,
 }
 
-#[derive(PartialEq, Eq)]
 pub struct DagEdge<N, E> {
     to: DagNodeHandle<N, E>,
     weight: E,
@@ -37,7 +36,7 @@ pub struct RcDag<N, E> {
     edge_type: PhantomData<E>,
 }
 
-impl <N : Eq, E : Eq + Clone> OnDag<N, E> for RcDag<N, E> {
+impl <N, E : Eq> OnDag<N, E> for RcDag<N, E> {
     type NodeHandle = DagNodeHandle<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         let handle = Self::NodeHandle::new(self, DagNode::new(node_data));
@@ -68,7 +67,7 @@ impl <N : Eq, E : Eq + Clone> OnDag<N, E> for RcDag<N, E> {
     }
 }
 
-impl <N: Eq, E: Eq> RcDag<N, E> {
+impl <N, E: Eq> RcDag<N, E> {
     /// Return true if and only if `search` is reachable from (or is equal to) `base`
     fn is_reachable(&self, search: &DagNodeHandle<N, E>, base: &DagNodeHandle<N, E>) -> bool {
         (base == search) || base.node.borrow().children.iter().any(|ch| {
@@ -106,7 +105,7 @@ impl <N: Eq, E: Eq> RcDag<N, E> {
         }
     }
 }
-impl <N: Eq, E: Eq + Clone> RcDag<N, E> {
+impl <N, E: Eq + Clone> RcDag<N, E> {
     /// iterate all of the outgoing edges of this node.
     pub fn children(&self, node: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
         // we must own the node of interest.
@@ -116,7 +115,7 @@ impl <N: Eq, E: Eq + Clone> RcDag<N, E> {
     }
 }
 
-impl <N : Eq, E : Eq> RcDag<N, E> {
+impl <N, E> RcDag<N, E> {
     pub fn new() -> Self {
         RcDag {
             node_type: PhantomData,
@@ -125,7 +124,7 @@ impl <N : Eq, E : Eq> RcDag<N, E> {
     }
 }
 
-impl<N : Eq, E : Eq> DagNode<N, E> {
+impl<N, E : Eq> DagNode<N, E> {
     fn new(value: N) -> Self {
         DagNode {
             value: value,
@@ -196,3 +195,12 @@ impl<N, E : Clone> Clone for DagEdge<N, E> {
         }
     }
 }
+
+// Identical to default Eq, again, but we don't want N : Eq requirement.
+impl<N, E : Eq> PartialEq for DagEdge<N, E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.to == other.to && self.weight == other.weight
+    }
+}
+impl<N, E : Eq> Eq for DagEdge<N, E>{}
+
