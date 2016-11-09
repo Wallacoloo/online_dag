@@ -7,14 +7,14 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 
 
-pub struct DagNodeHandle<N, E> {
+pub struct NodeHandle<N, E> {
     node: Rc<RefCell<DagNode<N, E>>>,
     /// keep a pointer to the tree owner to enforce mutability rules across multiple trees.
     owner: *const RcDag<N, E>,
 }
 
 pub struct DagEdge<N, E> {
-    to: DagNodeHandle<N, E>,
+    to: NodeHandle<N, E>,
     weight: E,
 }
 
@@ -37,7 +37,7 @@ pub struct RcDag<N, E> {
 }
 
 impl <N, E : Eq> OnDag<N, E> for RcDag<N, E> {
-    type NodeHandle = DagNodeHandle<N, E>;
+    type NodeHandle = NodeHandle<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         let handle = Self::NodeHandle::new(self, DagNode::new(node_data));
         handle
@@ -69,13 +69,13 @@ impl <N, E : Eq> OnDag<N, E> for RcDag<N, E> {
 
 impl <N, E: Eq> RcDag<N, E> {
     /// Return true if and only if `search` is reachable from (or is equal to) `base`
-    fn is_reachable(&self, search: &DagNodeHandle<N, E>, base: &DagNodeHandle<N, E>) -> bool {
+    fn is_reachable(&self, search: &NodeHandle<N, E>, base: &NodeHandle<N, E>) -> bool {
         (base == search) || base.node.borrow().children.iter().any(|ch| {
             self.is_reachable(search, &ch.to)
         })
     }
     /// Compute the topological ordering of `self`.
-    pub fn iter_topo(&self, from: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagNodeHandle<N, E>> {
+    pub fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         // can only iterate over nodes owned by *this* graph.
         assert_eq!(from.owner, self as *const Self);
         // just a depth-first sort, but then reverse the results.
@@ -85,7 +85,7 @@ impl <N, E: Eq> RcDag<N, E> {
         ordered.into_iter().rev()
     }
     /// Compute the *reverse* topological ordering of `self`, i.e. children -> root
-    pub fn iter_topo_rev(&self, from: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagNodeHandle<N, E>> {
+    pub fn iter_topo_rev(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         // can only iterate over nodes owned by *this* graph.
         assert_eq!(from.owner, self as *const Self);
         // just a depth-first sort:
@@ -95,7 +95,7 @@ impl <N, E: Eq> RcDag<N, E> {
         // The depth-first ordering goes highest -> least depth
         ordered.into_iter()
     }
-    fn depth_first_sort(&self, node: &DagNodeHandle<N, E>, ordered: &mut Vec<DagNodeHandle<N, E>>, marked: &mut HashSet<*const DagNode<N, E>>) {
+    fn depth_first_sort(&self, node: &NodeHandle<N, E>, ordered: &mut Vec<NodeHandle<N, E>>, marked: &mut HashSet<*const DagNode<N, E>>) {
         if !marked.contains(&(&*node.node.borrow() as *const DagNode<N, E>)) {
             for edge in node.node.borrow().children.iter() {
                 self.depth_first_sort(&edge.to, ordered, marked);
@@ -107,7 +107,7 @@ impl <N, E: Eq> RcDag<N, E> {
 }
 impl <N, E: Eq + Clone> RcDag<N, E> {
     /// iterate all of the outgoing edges of this node.
-    pub fn children(&self, node: &DagNodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
+    pub fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
         // we must own the node of interest.
         assert_eq!(node.owner, self as *const Self);
         // TODO: make an iterator object that borrows self & avoids cloning children
@@ -133,37 +133,37 @@ impl<N, E : Eq> DagNode<N, E> {
     }
 }
 
-impl<N, E> Clone for DagNodeHandle<N, E> {
+impl<N, E> Clone for NodeHandle<N, E> {
     fn clone(&self) -> Self {
-        DagNodeHandle {
+        NodeHandle {
             node: self.node.clone(),
             owner: self.owner,
         }
     }
 }
 
-impl<N, E> Hash for DagNodeHandle<N, E> {
+impl<N, E> Hash for NodeHandle<N, E> {
     fn hash<H>(&self, state: &mut H)  where H: Hasher {
         (&*self.node.borrow() as *const DagNode<N, E>).hash(state)
     }
 }
-impl<N, E> PartialEq for DagNodeHandle<N, E> {
+impl<N, E> PartialEq for NodeHandle<N, E> {
     fn eq(&self, other: &Self) -> bool {
         &*self.node.borrow() as *const DagNode<N, E> == &*other.node.borrow() as *const DagNode<N, E>
     }
 }
-impl<N, E> Eq for DagNodeHandle<N, E> {}
+impl<N, E> Eq for NodeHandle<N, E> {}
 
-impl<N, E> DagNodeHandle<N, E> {
+impl<N, E> NodeHandle<N, E> {
     fn new(owner: &RcDag<N, E>, node: DagNode<N, E>) -> Self {
-        DagNodeHandle {
+        NodeHandle {
             node: Rc::new(RefCell::new(node)),
             owner: owner,
         }
     }
 }
 
-impl<N : Clone, E> DagNodeHandle<N, E> {
+impl<N : Clone, E> NodeHandle<N, E> {
     /// Access the node's data via cloning it (potentially costly). Doesn't require a ref to the tree.
     pub fn node(&self) -> N {
         self.node.borrow().value.clone()
@@ -172,7 +172,7 @@ impl<N : Clone, E> DagNodeHandle<N, E> {
 
 
 impl<N, E> DagEdge<N, E> {
-    fn new(to: DagNodeHandle<N, E>, weight: E) -> Self {
+    fn new(to: NodeHandle<N, E>, weight: E) -> Self {
         DagEdge{ to: to, weight: weight }
     }
 }
