@@ -18,6 +18,14 @@ pub struct NodeHandle<N, E> {
 /// Node -> {data}, but wants to not keep the data alive if the node dies.
 pub struct WeakNodeHandle<N, E> {
     node: Weak<RefCell<DagNode<N, E>>>,
+    // need to preserve the raw ptr address for hashing, since we can't extract
+    // *any* information from a dead Weak pointer.
+    // TODO: Even a dead weak pointer has Shared memory allocation for the counts - 
+    //   we should therefore be able to hash & compare Weak pointers without storing
+    //   the node_ptr separately.
+    // NOTE: We need to store more than just the raw pointer because the memory
+    // location of a pointer can be reused after the Rc dies.
+    node_ptr: *const RefCell<DagNode<N, E>>,
 }
 
 pub struct DagEdge<N, E> {
@@ -195,18 +203,34 @@ impl<N, E> NodeHandle<N, E> {
     pub fn weak(&self) -> WeakNodeHandle<N, E> {
         WeakNodeHandle{
             node: Rc::downgrade(&self.node),
+            node_ptr: &*self.node,
         }
     }
 }
 
 impl<N, E> Hash for WeakNodeHandle<N, E> {
     fn hash<H>(&self, state: &mut H)  where H: Hasher {
-        (&self.node as *const Weak<RefCell<DagNode<N, E>>>).hash(state)
+        self.node_ptr.hash(state);
     }
 }
 impl<N, E> PartialEq for WeakNodeHandle<N, E> {
     fn eq(&self, other: &Self) -> bool {
-        &self.node as *const Weak<RefCell<DagNode<N, E>>> == &other.node as *const Weak<RefCell<DagNode<N, E>>>
+        match self.node.upgrade() {
+            None => {
+                if let Some(_) = other.node.upgrade() {
+                    false
+                } else {
+                    true
+                }
+            },
+            Some(my_rc) => {
+                if let Some(other_rc) = other.node.upgrade() {
+                    Rc::ptr_eq(&my_rc, &other_rc)
+                } else {
+                    false
+                }
+            }
+        }
     }
 }
 impl<N, E> Eq for WeakNodeHandle<N, E> {}
