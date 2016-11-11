@@ -4,13 +4,20 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 
 pub struct NodeHandle<N, E> {
     node: Rc<RefCell<DagNode<N, E>>>,
     /// keep a pointer to the tree owner to enforce mutability rules across multiple trees.
     owner: *const RcDag<N, E>,
+}
+
+/// allows to uniquely identify a node, but without keeping it alive.
+/// The primary use-case for this is in a map structure where the client maps
+/// Node -> {data}, but wants to not keep the data alive if the node dies.
+pub struct WeakNodeHandle<N, E> {
+    node: Weak<RefCell<DagNode<N, E>>>,
 }
 
 pub struct DagEdge<N, E> {
@@ -178,11 +185,30 @@ impl<N: Default, E: Eq> NodeHandle<N, E> {
 
 impl<N : Clone, E> NodeHandle<N, E> {
     /// Access the node's data via cloning it (potentially costly). Doesn't require a ref to the tree.
-    pub fn node(&self) -> N {
+    pub fn node_data(&self) -> N {
         self.node.borrow().value.clone()
     }
 }
 
+impl<N, E> NodeHandle<N, E> {
+    pub fn weak(&self) -> WeakNodeHandle<N, E> {
+        WeakNodeHandle{
+            node: Rc::downgrade(&self.node),
+        }
+    }
+}
+
+impl<N, E> Hash for WeakNodeHandle<N, E> {
+    fn hash<H>(&self, state: &mut H)  where H: Hasher {
+        (&self.node as *const Weak<RefCell<DagNode<N, E>>>).hash(state)
+    }
+}
+impl<N, E> PartialEq for WeakNodeHandle<N, E> {
+    fn eq(&self, other: &Self) -> bool {
+        &self.node as *const Weak<RefCell<DagNode<N, E>>> == &other.node as *const Weak<RefCell<DagNode<N, E>>>
+    }
+}
+impl<N, E> Eq for WeakNodeHandle<N, E> {}
 
 impl<N, E> DagEdge<N, E> {
     fn new(to: NodeHandle<N, E>, weight: E) -> Self {

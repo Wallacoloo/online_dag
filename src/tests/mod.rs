@@ -9,7 +9,7 @@ type MyDag = RcDag<u32, u32>;
 fn test_root() {
     let mut dag = MyDag::new();
     let root = dag.add_node(12);
-    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node() }).collect::<Vec<u32>>(), vec![12]);
+    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node_data() }).collect::<Vec<u32>>(), vec![12]);
 }
 
 #[test]
@@ -19,7 +19,7 @@ fn test_orphans() {
     let root = dag.add_node(12);
     dag.add_node(2);
     dag.add_node(1);
-    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node() }).collect::<Vec<u32>>(), vec![12]);
+    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node_data() }).collect::<Vec<u32>>(), vec![12]);
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn test_add_edges() {
     let n1 = dag.add_node(1);
     dag.add_edge(&root, &n1, 1001).expect("Failed to add edge");
     dag.add_edge(&n1, &n2, 1002).expect("Failed to add edge");
-    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node() }).collect::<Vec<u32>>(), vec![12, 1, 2]);
+    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node_data() }).collect::<Vec<u32>>(), vec![12, 1, 2]);
 }
 
 #[test]
@@ -53,14 +53,14 @@ fn test_rm_edges() {
     let n1 = dag.add_node(1);
     dag.add_edge(&root, &n1, 1001).expect("Failed to add edge");
     dag.add_edge(&n1, &n2, 1002).expect("Failed to add edge");
-    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node() }).collect::<Vec<u32>>(), vec![12, 1, 2]);
+    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node_data() }).collect::<Vec<u32>>(), vec![12, 1, 2]);
     // rm link to 2.
     dag.rm_edge(&n1, &n2, 1002).expect("Failed to rm edge");
-    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node() }).collect::<Vec<u32>>(), vec![12, 1]);
+    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node_data() }).collect::<Vec<u32>>(), vec![12, 1]);
     // add link back & remove link to 1.
     dag.add_edge(&n1, &n2, 1002).expect("Failed to add edge");
     dag.rm_edge(&root, &n1, 1001).expect("Failed to rm edge");
-    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node() }).collect::<Vec<u32>>(), vec![12]);
+    assert_eq!(dag.iter_topo(&root).map(|handle| { handle.node_data() }).collect::<Vec<u32>>(), vec![12]);
 }
 
 #[test]
