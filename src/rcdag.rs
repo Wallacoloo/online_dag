@@ -20,7 +20,7 @@ pub struct WeakNodeHandle<N, E> {
     node: Weak<RefCell<DagNode<N, E>>>,
     // need to preserve the raw ptr address for hashing, since we can't extract
     // *any* information from a dead Weak pointer.
-    // TODO: Even a dead weak pointer has Shared memory allocation for the counts - 
+    // TODO: Even a dead weak pointer has Shared memory allocation for the counts -
     //   we should therefore be able to hash & compare Weak pointers without storing
     //   the node_ptr separately.
     // NOTE: We need to store more than just the raw pointer because the memory
@@ -238,6 +238,15 @@ impl<N, E> Eq for WeakNodeHandle<N, E> {}
 impl<N, E> DagEdge<N, E> {
     fn new(to: NodeHandle<N, E>, weight: E) -> Self {
         DagEdge{ to: to, weight: weight }
+    }
+}
+
+impl<N, E> DagEdge<N, E> {
+    pub fn to(&self) -> &NodeHandle<N, E> {
+        &self.to
+    }
+    pub fn weight(&self) -> &E {
+        &self.weight
     }
 }
 
