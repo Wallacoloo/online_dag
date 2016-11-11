@@ -151,12 +151,12 @@ impl<N, E> Clone for NodeHandle<N, E> {
 
 impl<N, E> Hash for NodeHandle<N, E> {
     fn hash<H>(&self, state: &mut H)  where H: Hasher {
-        (&*self.node.borrow() as *const DagNode<N, E>).hash(state)
+        (&*self.node as *const RefCell<DagNode<N, E>>).hash(state)
     }
 }
 impl<N, E> PartialEq for NodeHandle<N, E> {
     fn eq(&self, other: &Self) -> bool {
-        &*self.node.borrow() as *const DagNode<N, E> == &*other.node.borrow() as *const DagNode<N, E>
+        &*self.node as *const RefCell<DagNode<N, E>> == &*other.node as *const RefCell<DagNode<N, E>>
     }
 }
 impl<N, E> Eq for NodeHandle<N, E> {}
