@@ -162,6 +162,19 @@ impl<N, E> NodeHandle<N, E> {
         }
     }
 }
+impl<N: Default, E: Hash + Eq> NodeHandle<N, E> {
+    /// Create a null handle that can be used instead by clients in place of Option<>.
+    /// Note: trying to use this in a query to a tree that expects a non-null NodeHandle WILL
+    /// error.
+    pub fn null() -> Self {
+        NodeHandle {
+            node: Rc::new(RefCell::new(
+                          DagNode::new(Default::default())
+            )),
+            owner: 0 as *const RcDag<N, E>,
+        }
+    }
+}
 
 impl<N : Clone, E> NodeHandle<N, E> {
     /// Access the node's data via cloning it (potentially costly). Doesn't require a ref to the tree.
