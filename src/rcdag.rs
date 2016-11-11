@@ -162,7 +162,7 @@ impl<N, E> NodeHandle<N, E> {
         }
     }
 }
-impl<N: Default, E: Hash + Eq> NodeHandle<N, E> {
+impl<N: Default, E: Eq> NodeHandle<N, E> {
     /// Create a null handle that can be used instead by clients in place of Option<>.
     /// Note: trying to use this in a query to a tree that expects a non-null NodeHandle WILL
     /// error.
