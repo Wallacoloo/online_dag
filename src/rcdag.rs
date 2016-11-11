@@ -156,7 +156,8 @@ impl<N, E> Hash for NodeHandle<N, E> {
 }
 impl<N, E> PartialEq for NodeHandle<N, E> {
     fn eq(&self, other: &Self) -> bool {
-        &*self.node as *const RefCell<DagNode<N, E>> == &*other.node as *const RefCell<DagNode<N, E>>
+        Rc::ptr_eq(&self.node, &other.node)
+        //&*self.node as *const RefCell<DagNode<N, E>> == &*other.node as *const RefCell<DagNode<N, E>>
     }
 }
 impl<N, E> Eq for NodeHandle<N, E> {}
