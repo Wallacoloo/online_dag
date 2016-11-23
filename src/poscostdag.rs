@@ -36,7 +36,7 @@ impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> OnDag<N, E> for PosCo
         // unconditionally.
         // assert_eq!(from.owner, self as *const Self);
         // assert_eq!(to.owner, self as *const Self);
-        if self.is_zero_cost(&from, &to) {
+        if data.is_zero_cost(&self) && self.is_zero_cost(&from, &to) {
             // there is a path from `to` to `from`, so adding an edge `from` -> `to` will introduce
             // a cycle.
             Err(())
