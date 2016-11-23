@@ -7,4 +7,7 @@
 mod tests;
 
 pub mod ondag;
+pub mod poscostdag;
 pub mod rcdag;
+
+mod rcdagbase;
