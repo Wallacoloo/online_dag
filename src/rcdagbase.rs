@@ -199,6 +199,9 @@ impl<N, E> NodeHandle<N, E> {
             node_ptr: &*self.node,
         }
     }
+    pub(super) fn owner(&self) -> *const RcDagBase<N, E> {
+        self.owner
+    }
 }
 
 impl<N, E> Hash for WeakNodeHandle<N, E> {

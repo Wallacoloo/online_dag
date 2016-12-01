@@ -2,6 +2,8 @@
 #![feature(conservative_impl_trait)]
 // For efficient comparison of Rc's.
 #![feature(ptr_eq)]
+// For restricting access to struct members to specific modules.
+#![feature(pub_restricted)]
 
 #[cfg(test)]
 mod tests;

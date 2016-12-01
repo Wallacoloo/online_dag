@@ -31,8 +31,8 @@ impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> OnDag<N, E> for PosCo
     }
     fn add_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(),()> {
         // the edge must connect two nodes owned by *this* graph.
-        // assert_eq!(from.owner, self as *const Self);
-        // assert_eq!(to.owner, self as *const Self);
+        assert_eq!(from.owner(), &self.dag as *const RcDagBase<N, E>);
+        assert_eq!(to.owner(), &self.dag as *const RcDagBase<N, E>);
 
         self.dag.add_edge_unchecked(from, to, data.clone());
         // Theory:
