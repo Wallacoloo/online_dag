@@ -31,18 +31,24 @@ impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> OnDag<N, E> for PosCo
     }
     fn add_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(),()> {
         // the edge must connect two nodes owned by *this* graph.
-        // NOTE: if to IS reachable from from, then &from and &to are at least in the same graph
-        // (though not neccessarily this one). TODO: It *would* be better to make this assertion
-        // unconditionally.
         // assert_eq!(from.owner, self as *const Self);
         // assert_eq!(to.owner, self as *const Self);
-        if data.is_zero_cost(&self) && self.is_zero_cost(&from, &to) {
-            // there is a path from `to` to `from`, so adding an edge `from` -> `to` will introduce
-            // a cycle.
+
+        self.dag.add_edge_unchecked(from, to, data.clone());
+        // Theory:
+        //  1. If a new edge introduces a 0-cycle, the cycle MUST have caused the delay of data
+        // from some (unknown) node into `to` to decrease. Therefore, any cycle must involve at
+        // least one edge going into `to`, and therefore `to` must be in this cycle.
+        //  2. Because all edges in a 0-cycle must be zero cost, all nodes in a cycle have a
+        //     0-cycle to themselves.
+        //  3. Therefore, if this new edge causes a 0-cycle, there exists a 0-cycle from `to` to `to`.
+        //  Note: 0-cycle = zero cumulative cost cycle.
+        if self.is_zero_cost(&to, &to) {
+            // This edge introduced a 0-cycle
+            self.dag.rm_edge(from, to, data);
             Err(())
         } else {
-            // add the parent -> child link:
-            self.dag.add_edge_unchecked(from, to, data);
+            // No 0-cycles.
             Ok(())
         }
     }
@@ -59,8 +65,8 @@ impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> PosCostDag<N, E> {
         }
     }
     fn is_zero_cost(&self, search: &NodeHandle<N, E>, base: &NodeHandle<N, E>) -> bool {
-        (base == search) || self.dag.children(base).any(|edge| {
-            edge.weight().is_zero_cost(&self) && self.is_zero_cost(search, &edge.to())
+        self.dag.children(base).any(|edge| {
+            edge.weight().is_zero_cost(&self) && (edge.to() == search || self.is_zero_cost(search, &edge.to()))
         })
     }
     pub fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
