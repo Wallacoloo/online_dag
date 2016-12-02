@@ -1,6 +1,7 @@
 use super::ondag::OnDag;
+use super::rcdagbase::RcDagBase;
 
-use super::rcdagbase::{DagEdge, NodeHandle, RcDagBase};
+pub use super::rcdagbase::{DagEdge, NodeHandle};
 
 pub trait CostQueriable<Dag> {
     /// Return true if the cost of traversing this edge is 0.
