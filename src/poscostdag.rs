@@ -1,6 +1,6 @@
 use super::ondag::OnDag;
 
-use super::rcdagbase::{NodeHandle, RcDagBase};
+use super::rcdagbase::{DagEdge, NodeHandle, RcDagBase};
 
 pub trait CostQueriable<Dag> {
     /// Return true if the cost of traversing this edge is 0.
@@ -74,5 +74,11 @@ impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> PosCostDag<N, E> {
     }
     pub fn iter_topo_rev(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         self.dag.iter_topo_rev(from)
+    }
+}
+
+impl <N, E : Eq + Clone> PosCostDag<N, E> {
+    pub fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
+        self.dag.children(node)
     }
 }

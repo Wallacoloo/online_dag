@@ -75,13 +75,13 @@ impl <N, E : Eq> RcDagBase<N, E> {
 
 impl <N, E: Eq> RcDagBase<N, E> {
     /// Return true if and only if `search` is reachable from (or is equal to) `base`
-    pub fn is_reachable(&self, search: &NodeHandle<N, E>, base: &NodeHandle<N, E>) -> bool {
+    pub(super) fn is_reachable(&self, search: &NodeHandle<N, E>, base: &NodeHandle<N, E>) -> bool {
         (base == search) || base.node.borrow().children.iter().any(|ch| {
             self.is_reachable(search, &ch.to)
         })
     }
     /// Compute the topological ordering of `self`.
-    pub fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
+    pub(super) fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         // can only iterate over nodes owned by *this* graph.
         assert_eq!(from.owner, self as *const Self);
         // just a depth-first sort, but then reverse the results.
@@ -91,7 +91,7 @@ impl <N, E: Eq> RcDagBase<N, E> {
         ordered.into_iter().rev()
     }
     /// Compute the *reverse* topological ordering of `self`, i.e. children -> root
-    pub fn iter_topo_rev(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
+    pub(super) fn iter_topo_rev(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         // can only iterate over nodes owned by *this* graph.
         assert_eq!(from.owner, self as *const Self);
         // just a depth-first sort:
@@ -113,8 +113,7 @@ impl <N, E: Eq> RcDagBase<N, E> {
 }
 impl <N, E: Eq + Clone> RcDagBase<N, E> {
     /// iterate all of the outgoing edges of this node.
-    #[allow(dead_code)]
-    pub fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
+    pub(super) fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
         // we must own the node of interest.
         assert_eq!(node.owner, self as *const Self);
         // TODO: make an iterator object that borrows self & avoids cloning children
@@ -124,7 +123,7 @@ impl <N, E: Eq + Clone> RcDagBase<N, E> {
 
 impl <N, E> RcDagBase<N, E> {
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         RcDagBase {
             node_type: PhantomData,
             edge_type: PhantomData,
