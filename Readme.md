@@ -1,8 +1,10 @@
 About
 ======
-This library provides a DAG structure that enforces its acyclic property with each insertion, returning `Ok()` on a successful insertion and `Err()` if the insertion would create a cycle (upon error, the graph is left in the same state as before the insertion).
+This library provides a few different DAG structures that enforce the acyclic property with each insertion, returning `Ok()` on a successful insertion and `Err()` if the insertion would create a cycle (upon error, the graph is left in the same state as before the insertion).
 
-Additionally, nodes (and associated edges) are automatically dropped when unreachable (not reachable from the graph root or from any user-owned `NodeHandle`s).
+Each DAG implementation is specialized for a different purpose. Refcount-based DAGs (the only type that exists at the moment) automatically drop nodes and associated edges when they are unreachable from any existing `NodeHandle`.
+
+Additionally, different DAGs in this library have different criteria for what, exactly, is considered a cycle, making them suitable even for graphs where cycles are *sometimes* OK.
 
 Design Goals
 ======
