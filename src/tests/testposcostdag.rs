@@ -1,15 +1,16 @@
 use ::ondag::OnDag;
-use ::rcdag::RcDag;
+use ::poscostdag::{CostQueriable, PosCostDag};
 
-type MyDag = RcDag<u32, u32>;
+type MyDag = PosCostDag<u32, u32>;
 
 
 // Declare tests for common OnDag functionality (inserting/removing nodes and edges).
 def_ondag_tests!{MyDag}
 
 
+/*
 #[test]
-/// Graph should not allow cycles - should be an error when adding a cycle & structure should be
+/// Graph should not allow ZERO-COST cycles - should be an error when adding a cycle & structure should be
 /// unmodified.
 fn test_cycles() {
     //     12
@@ -24,4 +25,12 @@ fn test_cycles() {
     dag.add_edge(&root, &n1, 1001).expect("Failed to add edge");
     dag.add_edge(&n1, &n2, 1002).expect("Failed to add edge");
     dag.add_edge(&n2, &root, 1003).err().expect("Failed to detect cycle");
+}
+*/
+
+impl CostQueriable<MyDag> for u32 {
+    /// For testing, the edge cost is identical to its weight.
+    fn is_zero_cost(&self, _dag: &MyDag) -> bool {
+        self == &0
+    }
 }
