@@ -26,9 +26,9 @@ fn test_cycles() {
     dag.add_edge(&a, &b, 0).err().expect("Failed to detect cycle");
 }
 
-impl CostQueriable<MyDag> for u32 {
+impl CostQueriable<u32, u32> for u32 {
     /// For testing, the edge cost is identical to its weight.
-    fn is_zero_cost(&self, _dag: &MyDag) -> bool {
-        self == &0
+    fn is_zero_cost(edge: &<MyDag as OnDag<u32, u32>>::EdgeHandle, _dag: &MyDag) -> bool {
+        edge.weight() == &0
     }
 }

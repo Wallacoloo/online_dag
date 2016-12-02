@@ -13,6 +13,7 @@ pub struct RcDag<N, E> {
 
 impl <N, E : Eq> OnDag<N, E> for RcDag<N, E> {
     type NodeHandle = NodeHandle<N, E>;
+    type EdgeHandle = DagEdge<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         self.dag.add_node(node_data)
     }

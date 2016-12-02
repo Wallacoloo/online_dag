@@ -3,9 +3,9 @@ use super::rcdagbase::RcDagBase;
 
 pub use super::rcdagbase::{DagEdge, NodeHandle, WeakNodeHandle};
 
-pub trait CostQueriable<Dag> {
+pub trait CostQueriable<N, E> {
     /// Return true if the cost of traversing this edge is 0.
-    fn is_zero_cost(&self, dag: &Dag) -> bool;
+    fn is_zero_cost(edge: &DagEdge<N, E>, dag: &PosCostDag<N, E>) -> bool;
 }
 
 /*
@@ -25,8 +25,9 @@ pub struct PosCostDag<N, E> {
     dag: RcDagBase<N, E>,
 }
 
-impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> OnDag<N, E> for PosCostDag<N, E> {
+impl <N, E : Eq + CostQueriable<N, E> + Clone> OnDag<N, E> for PosCostDag<N, E> {
     type NodeHandle = NodeHandle<N, E>;
+    type EdgeHandle = DagEdge<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         self.dag.add_node(node_data)
     }
@@ -59,7 +60,7 @@ impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> OnDag<N, E> for PosCo
     }
 }
 
-impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> PosCostDag<N, E> {
+impl <N, E : Eq + CostQueriable<N, E> + Clone> PosCostDag<N, E> {
     pub fn new() -> Self {
         PosCostDag {
             dag: RcDagBase::new()
@@ -67,7 +68,7 @@ impl <N, E : Eq + CostQueriable<PosCostDag<N, E>> + Clone> PosCostDag<N, E> {
     }
     fn is_zero_cost(&self, search: &NodeHandle<N, E>, base: &NodeHandle<N, E>) -> bool {
         self.dag.children(base).any(|edge| {
-            edge.weight().is_zero_cost(&self) && (edge.to() == search || self.is_zero_cost(search, &edge.to()))
+            E::is_zero_cost(&edge, &self) && (edge.to() == search || self.is_zero_cost(search, &edge.to()))
         })
     }
     pub fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
