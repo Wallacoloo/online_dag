@@ -8,14 +8,6 @@ pub trait CostQueriable<N, E> {
     fn is_zero_cost(edge: &DagEdge<N, E>, dag: &PosCostDag<N, E>) -> bool;
 }
 
-/*
-/// Collection of all traits needed for the baseline version of the DAG (i.e.
-/// to implement every method of the Dag trait).
-trait Edge<N, E> : Eq + CostQueriable<PosCostDag<N, E>> + Clone {}
-/// Automatically implement this trait - other modules shouldn't have to know about it.
-impl<N, E> Edge<N, E> for E where E : Eq + CostQueriable<PosCostDag<N, E>> + Clone {}
-*/
-
 /// An Online Dag implementation that DOES allow cycles, provided the cumulative
 /// edge weight of any cycles is > 0.
 /// 
