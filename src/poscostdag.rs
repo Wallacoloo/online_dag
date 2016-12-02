@@ -1,11 +1,11 @@
 use super::ondag::OnDag;
 use super::rcdagbase::RcDagBase;
 
-pub use super::rcdagbase::{DagEdge, NodeHandle, WeakNodeHandle};
+pub use super::rcdagbase::{DagEdge, FullEdge, NodeHandle, WeakNodeHandle};
 
 pub trait CostQueriable<N, E> {
     /// Return true if the cost of traversing this edge is 0.
-    fn is_zero_cost(edge: &DagEdge<N, E>, dag: &PosCostDag<N, E>) -> bool;
+    fn is_zero_cost(edge: &FullEdge<N, E>, dag: &PosCostDag<N, E>) -> bool;
 }
 
 /// An Online Dag implementation that DOES allow cycles, provided the cumulative
@@ -60,7 +60,10 @@ impl <N, E : Eq + CostQueriable<N, E> + Clone> PosCostDag<N, E> {
     }
     fn is_zero_cost(&self, search: &NodeHandle<N, E>, base: &NodeHandle<N, E>) -> bool {
         self.dag.children(base).any(|edge| {
-            E::is_zero_cost(&edge, &self) && (edge.to() == search || self.is_zero_cost(search, &edge.to()))
+            // TODO: should be possible to avoid the clone of base & edge.
+            let full_edge = FullEdge::new(base.clone(), edge.clone());
+            let is_this_edge_0 = E::is_zero_cost(&full_edge, &self);
+            is_this_edge_0 && (edge.to() == search || self.is_zero_cost(search, &edge.to()))
         })
     }
     pub fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {

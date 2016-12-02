@@ -33,6 +33,12 @@ pub struct DagEdge<N, E> {
     weight: E,
 }
 
+/// hold all information related to an edge: its source, destination and weight.
+pub struct FullEdge<N, E> {
+    half: DagEdge<N, E>,
+    from: NodeHandle<N, E>,
+}
+
 struct DagNode<N, E> {
     value: N,
     children: HashSet<DagEdge<N, E>>,
@@ -274,3 +280,23 @@ impl<N, E : Eq> PartialEq for DagEdge<N, E> {
 }
 impl<N, E : Eq> Eq for DagEdge<N, E>{}
 
+impl<N, E> FullEdge<N, E> {
+    pub(super) fn new(from: NodeHandle<N, E>, half: DagEdge<N, E>) -> Self {
+        FullEdge {
+            half: half,
+            from: from,
+        }
+    }
+    #[allow(dead_code)]
+    pub fn from(&self) -> &NodeHandle<N, E> {
+        &self.from
+    }
+    #[allow(dead_code)]
+    pub fn to(&self) -> &NodeHandle<N, E> {
+        self.half.to()
+    }
+    #[allow(dead_code)]
+    pub fn weight(&self) -> &E {
+        self.half.weight()
+    }
+}
