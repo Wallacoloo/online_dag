@@ -28,20 +28,20 @@ pub struct WeakNodeHandle<N, E> {
     node_ptr: *const RefCell<DagNode<N, E>>,
 }
 
-pub struct DagEdge<N, E> {
+pub struct HalfEdge<N, E> {
     to: NodeHandle<N, E>,
     weight: E,
 }
 
 /// hold all information related to an edge: its source, destination and weight.
 pub struct FullEdge<N, E> {
-    half: DagEdge<N, E>,
+    half: HalfEdge<N, E>,
     from: NodeHandle<N, E>,
 }
 
 struct DagNode<N, E> {
     value: N,
-    children: HashSet<DagEdge<N, E>>,
+    children: HashSet<HalfEdge<N, E>>,
 }
 
 // TODO: use a small-size optimized Set, e.g. smallset
@@ -67,7 +67,7 @@ impl <N, E : Eq> RcDagBase<N, E> {
         assert_eq!(from.owner, self as *const Self);
         assert_eq!(to.owner, self as *const Self);
         // add the parent -> child link:
-        from.node.borrow_mut().children.insert(DagEdge::new(to.clone(), data));
+        from.node.borrow_mut().children.insert(HalfEdge::new(to.clone(), data));
     }
     pub fn rm_edge(&mut self, from: &NodeHandle<N, E>, to: &NodeHandle<N, E>, data: E) {
         // the edge must belong to *this* graph.
@@ -75,7 +75,7 @@ impl <N, E : Eq> RcDagBase<N, E> {
         assert_eq!(to.owner, self as *const Self);
         // delete the parent -> child relationship:
         // TODO: should be possible to remove w/o cloning the references.
-        from.node.borrow_mut().children.remove(&DagEdge::new(to.clone(), data));
+        from.node.borrow_mut().children.remove(&HalfEdge::new(to.clone(), data));
     }
 }
 
@@ -119,7 +119,7 @@ impl <N, E: Eq> RcDagBase<N, E> {
 }
 impl <N, E: Eq + Clone> RcDagBase<N, E> {
     /// iterate all of the outgoing edges of this node.
-    pub(super) fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
+    pub(super) fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=HalfEdge<N, E>> {
         // we must own the node of interest.
         assert_eq!(node.owner, self as *const Self);
         // TODO: make an iterator object that borrows self & avoids cloning children
@@ -236,13 +236,13 @@ impl<N, E> PartialEq for WeakNodeHandle<N, E> {
 }
 impl<N, E> Eq for WeakNodeHandle<N, E> {}
 
-impl<N, E> DagEdge<N, E> {
+impl<N, E> HalfEdge<N, E> {
     fn new(to: NodeHandle<N, E>, weight: E) -> Self {
-        DagEdge{ to: to, weight: weight }
+        HalfEdge{ to: to, weight: weight }
     }
 }
 
-impl<N, E> DagEdge<N, E> {
+impl<N, E> HalfEdge<N, E> {
     #[allow(dead_code)]
     pub fn to(&self) -> &NodeHandle<N, E> {
         &self.to
@@ -253,7 +253,7 @@ impl<N, E> DagEdge<N, E> {
     }
 }
 
-impl<N, E> Hash for DagEdge<N, E> {
+impl<N, E> Hash for HalfEdge<N, E> {
     fn hash<H>(&self, state: &mut H)  where H: Hasher {
         // we don't really need to hash the edge; few use-cases have many
         // overlapping edges with different weights.
@@ -263,9 +263,9 @@ impl<N, E> Hash for DagEdge<N, E> {
 
 // Yes, this is identical to the default Clone implementation,
 // but the default impl requires N to also be cloneable.
-impl<N, E : Clone> Clone for DagEdge<N, E> {
+impl<N, E : Clone> Clone for HalfEdge<N, E> {
     fn clone(&self) -> Self {
-        DagEdge {
+        HalfEdge {
             to: self.to.clone(),
             weight: self.weight.clone(),
         }
@@ -273,15 +273,15 @@ impl<N, E : Clone> Clone for DagEdge<N, E> {
 }
 
 // Identical to default Eq, again, but we don't want N : Eq requirement.
-impl<N, E : Eq> PartialEq for DagEdge<N, E> {
+impl<N, E : Eq> PartialEq for HalfEdge<N, E> {
     fn eq(&self, other: &Self) -> bool {
         self.to == other.to && self.weight == other.weight
     }
 }
-impl<N, E : Eq> Eq for DagEdge<N, E>{}
+impl<N, E : Eq> Eq for HalfEdge<N, E>{}
 
 impl<N, E> FullEdge<N, E> {
-    pub(super) fn new(from: NodeHandle<N, E>, half: DagEdge<N, E>) -> Self {
+    pub(super) fn new(from: NodeHandle<N, E>, half: HalfEdge<N, E>) -> Self {
         FullEdge {
             half: half,
             from: from,

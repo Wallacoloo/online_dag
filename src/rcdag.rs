@@ -1,7 +1,7 @@
 use super::ondag::OnDag;
 use super::rcdagbase::RcDagBase;
 
-pub use super::rcdagbase::{DagEdge, NodeHandle, WeakNodeHandle};
+pub use super::rcdagbase::{HalfEdge, NodeHandle, WeakNodeHandle};
 
 
 
@@ -13,7 +13,6 @@ pub struct RcDag<N, E> {
 
 impl <N, E : Eq> OnDag<N, E> for RcDag<N, E> {
     type NodeHandle = NodeHandle<N, E>;
-    type EdgeHandle = DagEdge<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         self.dag.add_node(node_data)
     }
@@ -55,7 +54,7 @@ impl <N, E : Eq> RcDag<N, E> {
 }
 
 impl <N, E : Eq + Clone> RcDag<N, E> {
-    pub fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
+    pub fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=HalfEdge<N, E>> {
         self.dag.children(node)
     }
 }

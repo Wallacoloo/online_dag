@@ -1,5 +1,5 @@
 use ::ondag::OnDag;
-use ::poscostdag::{CostQueriable, PosCostDag};
+use ::poscostdag::{CostQueriable, FullEdge, PosCostDag};
 
 type MyDag = PosCostDag<u32, u32>;
 
@@ -28,7 +28,7 @@ fn test_cycles() {
 
 impl CostQueriable<u32, u32> for u32 {
     /// For testing, the edge cost is identical to its weight.
-    fn is_zero_cost(edge: &<MyDag as OnDag<u32, u32>>::EdgeHandle, _dag: &MyDag) -> bool {
+    fn is_zero_cost(edge: &FullEdge<u32, u32>, _dag: &MyDag) -> bool {
         edge.weight() == &0
     }
 }

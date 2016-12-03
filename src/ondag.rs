@@ -3,7 +3,6 @@
 /// Note: some implementations may require N or E to also be hashable, cloneable, or orderable.
 pub trait OnDag<N, E> {
     type NodeHandle;
-    type EdgeHandle;
     fn add_node(&mut self, node: N) -> Self::NodeHandle;
     fn add_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(),()>;
     fn rm_edge(&mut self, from: &Self::NodeHandle, to: &Self::NodeHandle, data: E) -> Result<(),()>;

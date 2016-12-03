@@ -1,7 +1,7 @@
 use super::ondag::OnDag;
 use super::rcdagbase::RcDagBase;
 
-pub use super::rcdagbase::{DagEdge, FullEdge, NodeHandle, WeakNodeHandle};
+pub use super::rcdagbase::{HalfEdge, FullEdge, NodeHandle, WeakNodeHandle};
 
 pub trait CostQueriable<N, E> {
     /// Return true if the cost of traversing this edge is 0.
@@ -19,7 +19,6 @@ pub struct PosCostDag<N, E> {
 
 impl <N, E : Eq + CostQueriable<N, E> + Clone> OnDag<N, E> for PosCostDag<N, E> {
     type NodeHandle = NodeHandle<N, E>;
-    type EdgeHandle = DagEdge<N, E>;
     fn add_node(&mut self, node_data: N) -> Self::NodeHandle {
         self.dag.add_node(node_data)
     }
@@ -75,7 +74,7 @@ impl <N, E : Eq + CostQueriable<N, E> + Clone> PosCostDag<N, E> {
 }
 
 impl <N, E : Eq + Clone> PosCostDag<N, E> {
-    pub fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=DagEdge<N, E>> {
+    pub fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=HalfEdge<N, E>> {
         self.dag.children(node)
     }
 }
