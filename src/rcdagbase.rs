@@ -64,15 +64,15 @@ impl <N, E : Eq> RcDagBase<N, E> {
     }
     pub fn add_edge_unchecked(&mut self, from: &NodeHandle<N, E>, to: &NodeHandle<N, E>, data: E) {
         // the edge must connect two nodes owned by *this* graph.
-        assert_eq!(from.owner, self as *const Self);
-        assert_eq!(to.owner, self as *const Self);
+        assert_eq!(from.owner, self as *const Self, "'from' node must be owned by 'self'");
+        assert_eq!(to.owner, self as *const Self, "'to' node must be owned by 'self'");
         // add the parent -> child link:
         from.node.borrow_mut().children.insert(HalfEdge::new(to.clone(), data));
     }
     pub fn rm_edge(&mut self, from: &NodeHandle<N, E>, to: &NodeHandle<N, E>, data: E) {
         // the edge must belong to *this* graph.
-        assert_eq!(from.owner, self as *const Self);
-        assert_eq!(to.owner, self as *const Self);
+        assert_eq!(from.owner, self as *const Self, "'from' node must be owned by 'self'");
+        assert_eq!(to.owner, self as *const Self, "'to' node must be owned by 'self'");
         // delete the parent -> child relationship:
         // TODO: should be possible to remove w/o cloning the references.
         from.node.borrow_mut().children.remove(&HalfEdge::new(to.clone(), data));
@@ -89,7 +89,7 @@ impl <N, E: Eq> RcDagBase<N, E> {
     /// Compute the topological ordering of `self`.
     pub(super) fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         // can only iterate over nodes owned by *this* graph.
-        assert_eq!(from.owner, self as *const Self);
+        assert_eq!(from.owner, self as *const Self, "'from' node must be owned by 'self'");
         // just a depth-first sort, but then reverse the results.
         let mut ordered = vec![];
         self.depth_first_sort(from, &mut ordered, &mut HashSet::new());
@@ -99,7 +99,7 @@ impl <N, E: Eq> RcDagBase<N, E> {
     /// Compute the *reverse* topological ordering of `self`, i.e. children -> root
     pub(super) fn iter_topo_rev(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         // can only iterate over nodes owned by *this* graph.
-        assert_eq!(from.owner, self as *const Self);
+        assert_eq!(from.owner, self as *const Self, "'from' node must be owned by 'self'");
         // just a depth-first sort:
         // TODO: we can achieve this with lower latency by moving it into an iterator.
         let mut ordered = vec![];
@@ -121,7 +121,7 @@ impl <N, E: Eq + Clone> RcDagBase<N, E> {
     /// iterate all of the outgoing edges of this node.
     pub(super) fn children(&self, node: &NodeHandle<N, E>) -> impl Iterator<Item=HalfEdge<N, E>> {
         // we must own the node of interest.
-        assert_eq!(node.owner, self as *const Self);
+        assert_eq!(node.owner, self as *const Self, "'node' must be owned by 'self'");
         // TODO: make an iterator object that borrows self & avoids cloning children
         node.node.borrow().children.clone().into_iter()
     }
