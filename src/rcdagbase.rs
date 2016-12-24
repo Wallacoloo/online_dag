@@ -5,12 +5,17 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
+use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 
+/// Each DAG is given an ID upon creation to ensure nodes aren't intermixed between DAGs.
+static NEXT_DAG_ID: AtomicUsize = ATOMIC_USIZE_INIT;
 
 pub struct NodeHandle<N, E> {
     node: Rc<RefCell<DagNode<N, E>>>,
-    /// keep a pointer to the tree owner to enforce mutability rules across multiple trees.
-    owner: *const RcDagBase<N, E>,
+    // keep a pointer to the tree owner to enforce mutability rules across multiple trees.
+    //owner: *const RcDagBase<N, E>,
+    /// Associate with the owning tree to enforce mutability rules across multiple trees.
+    owner_id: usize,
 }
 
 /// allows to uniquely identify a node, but without keeping it alive.
@@ -55,6 +60,7 @@ pub struct RcDagBase<N, E> {
     /// w/o error.
     node_type: PhantomData<N>,
     edge_type: PhantomData<E>,
+    id: usize,
 }
 
 impl <N, E : Eq> RcDagBase<N, E> {
@@ -128,11 +134,13 @@ impl <N, E: Eq + Clone> RcDagBase<N, E> {
 }
 
 impl <N, E> RcDagBase<N, E> {
-    #[allow(dead_code)]
     pub(super) fn new() -> Self {
         RcDagBase {
             node_type: PhantomData,
             edge_type: PhantomData,
+            // SeqCst = strongest ordering; will behave intuitively
+            // Add 1 so ordering starts at 1 (0=null)
+            id: 1+NEXT_DAG_ID.fetch_add(1, Ordering::SeqCst)
         }
     }
 }
@@ -150,7 +158,7 @@ impl<N, E> Clone for NodeHandle<N, E> {
     fn clone(&self) -> Self {
         NodeHandle {
             node: self.node.clone(),
-            owner: self.owner,
+            owner_id: self.owner_id,
         }
     }
 }
@@ -172,7 +180,7 @@ impl<N, E> NodeHandle<N, E> {
     fn new(owner: &RcDagBase<N, E>, node: DagNode<N, E>) -> Self {
         NodeHandle {
             node: Rc::new(RefCell::new(node)),
-            owner: owner,
+            owner_id: owner.id,
         }
     }
 }
@@ -185,7 +193,7 @@ impl<N: Default, E: Eq> NodeHandle<N, E> {
             node: Rc::new(RefCell::new(
                           DagNode::new(Default::default())
             )),
-            owner: 0 as *const RcDagBase<N, E>,
+            owner_id: 0,
         }
     }
 }
@@ -205,7 +213,7 @@ impl<N, E> NodeHandle<N, E> {
         }
     }
     pub(super) fn check_owner(&self, expected: &RcDagBase<N, E>) {
-        assert_eq!(self.owner, expected as *const RcDagBase<N, E>, "NodeHandle owner mismatch");
+        assert_eq!(self.owner_id, expected.id, "NodeHandle owner mismatch");
     }
 }
 
