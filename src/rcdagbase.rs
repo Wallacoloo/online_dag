@@ -245,17 +245,15 @@ impl<N, E> PartialEq for WeakNodeHandle<N, E> {
 impl<N, E> Eq for WeakNodeHandle<N, E> {}
 
 impl<N, E> HalfEdge<N, E> {
-    fn new(to: NodeHandle<N, E>, weight: E) -> Self {
+    pub (super) fn new(to: NodeHandle<N, E>, weight: E) -> Self {
         HalfEdge{ to: to, weight: weight }
     }
 }
 
 impl<N, E> HalfEdge<N, E> {
-    #[allow(dead_code)]
     pub fn to(&self) -> &NodeHandle<N, E> {
         &self.to
     }
-    #[allow(dead_code)]
     pub fn weight(&self) -> &E {
         &self.weight
     }
@@ -289,21 +287,20 @@ impl<N, E : Eq> PartialEq for HalfEdge<N, E> {
 impl<N, E : Eq> Eq for HalfEdge<N, E>{}
 
 impl<N, E> FullEdge<N, E> {
+    /*
     pub(super) fn new(from: NodeHandle<N, E>, half: HalfEdge<N, E>) -> Self {
         FullEdge {
             half: half,
             from: from,
         }
     }
-    #[allow(dead_code)]
+    */
     pub fn from(&self) -> &NodeHandle<N, E> {
         &self.from
     }
-    #[allow(dead_code)]
     pub fn to(&self) -> &NodeHandle<N, E> {
         self.half.to()
     }
-    #[allow(dead_code)]
     pub fn weight(&self) -> &E {
         self.half.weight()
     }

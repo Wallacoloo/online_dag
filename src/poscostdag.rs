@@ -4,9 +4,12 @@ use super::rcdagbase::RcDagBase;
 pub use super::rcdagbase::{HalfEdge, FullEdge, NodeHandle, WeakNodeHandle};
 
 pub trait CostQueriable<N, E> {
-    /// Return true if the cost of traversing this edge is 0.
-    fn is_zero_cost(edge: &FullEdge<N, E>, dag: &PosCostDag<N, E>) -> bool;
+    /// Return true if the cost of traversing this edge, in the context of traveling to `next`, is 0.
+    /// `next` is included because some graphs have internal costs associated with the node -
+    /// most graphs won't need to peek at `next`.
+    fn is_zero_cost(edge: &HalfEdge<N, E>, next: &HalfEdge<N, E>, dag: &PosCostDag<N, E>) -> bool;
 }
+
 
 /// An Online Dag implementation that DOES allow cycles, provided the cumulative
 /// edge weight of any cycles is > 0.
@@ -28,15 +31,15 @@ impl <N, E : Eq + CostQueriable<N, E> + Clone> OnDag<N, E> for PosCostDag<N, E> 
         to.check_owner(&self.dag);
 
         self.dag.add_edge_unchecked(from, to, data.clone());
+        let half_edge = HalfEdge::new(to.clone(), data.clone());
         // Theory:
-        //  1. If a new edge introduces a 0-cycle, the cycle MUST have caused the delay of data
-        // from some (unknown) node into `to` to decrease. Therefore, any cycle must involve at
-        // least one edge going into `to`, and therefore `to` must be in this cycle.
-        //  2. Because all edges in a 0-cycle must be zero cost, all nodes in a cycle have a
-        //     0-cycle to themselves.
-        //  3. Therefore, if this new edge causes a 0-cycle, there exists a 0-cycle from `to` to `to`.
+        //  1. Before the new edge, there were no 0-cycles.
+        //  2. If the new edge introduces a 0-cycle, that edge must be a component of the cycle.
+        //  3. All nodes/edges in a 0-cycle have a 0-cycle to themselves.
+        //  4. Therefore, a 0-cycle was introduced to the graph IFF there is a 0-cycle from
+        //     the new edge to itself.
         //  Note: 0-cycle = zero cumulative cost cycle.
-        if self.is_zero_cost(&to, &to) {
+        if self.is_zero_cost(&half_edge, &half_edge) {
             // This edge introduced a 0-cycle
             self.dag.rm_edge(from, to, data);
             Err(())
@@ -51,25 +54,29 @@ impl <N, E : Eq + CostQueriable<N, E> + Clone> OnDag<N, E> for PosCostDag<N, E> 
     }
 }
 
-impl <N, E : Eq + CostQueriable<N, E> + Clone> PosCostDag<N, E> {
+impl <N, E> PosCostDag<N, E> {
     pub fn new() -> Self {
         PosCostDag {
             dag: RcDagBase::new()
         }
     }
-    fn is_zero_cost(&self, search: &NodeHandle<N, E>, base: &NodeHandle<N, E>) -> bool {
-        self.dag.children(base).any(|edge| {
-            // TODO: should be possible to avoid the clone of base & edge.
-            let full_edge = FullEdge::new(base.clone(), edge.clone());
-            let is_this_edge_0 = E::is_zero_cost(&full_edge, &self);
-            is_this_edge_0 && (edge.to() == search || self.is_zero_cost(search, &edge.to()))
-        })
-    }
+}
+
+impl <N, E : Eq> PosCostDag<N, E> {
     pub fn iter_topo(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         self.dag.iter_topo(from)
     }
     pub fn iter_topo_rev(&self, from: &NodeHandle<N, E>) -> impl Iterator<Item=NodeHandle<N, E>> {
         self.dag.iter_topo_rev(from)
+    }
+}
+
+impl <N, E : Eq + CostQueriable<N, E> + Clone> PosCostDag<N, E> {
+    fn is_zero_cost(&self, search: &HalfEdge<N, E>, base: &HalfEdge<N, E>) -> bool {
+        self.dag.children(base.to()).any(|edge| {
+            let is_this_edge_0 = E::is_zero_cost(&base, &edge, &self);
+            is_this_edge_0 && (&edge == search || self.is_zero_cost(search, &edge))
+        })
     }
 }
 
