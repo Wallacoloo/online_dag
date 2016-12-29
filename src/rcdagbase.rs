@@ -245,7 +245,7 @@ impl<N, E> PartialEq for WeakNodeHandle<N, E> {
 impl<N, E> Eq for WeakNodeHandle<N, E> {}
 
 impl<N, E> HalfEdge<N, E> {
-    pub (super) fn new(to: NodeHandle<N, E>, weight: E) -> Self {
+    pub fn new(to: NodeHandle<N, E>, weight: E) -> Self {
         HalfEdge{ to: to, weight: weight }
     }
 }
