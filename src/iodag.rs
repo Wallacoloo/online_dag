@@ -85,7 +85,7 @@ impl<N, FromNodeW, FromNullW, ToNodeW, ToNullW> IODag<N, FromNodeW, FromNullW, T
             edges_from_null: HashSet::new(),
         }
     }
-    pub fn new_node(&mut self, node_data: N) -> NodeHandle {
+    pub fn add_node(&mut self, node_data: N) -> NodeHandle {
         let handle = NodeHandle {
             index: self.node_counter,
         };
