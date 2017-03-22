@@ -29,7 +29,7 @@ pub struct NodeData<N, FromNodeW, FromNullW, ToNodeW, ToNullW>
 }
 
 // Edges consist of two parts: the `from` and the `to`.
-// Define this structure in a way that creates 4 type of edges.
+// Define this structure in a way that creates 4 types of edges.
 #[derive(Eq, Hash, PartialEq)]
 pub struct FromNull<W> {
     weight: W,
@@ -120,9 +120,17 @@ impl<N, FromNodeW, FromNullW, ToNodeW, ToNullW> IODag<N, FromNodeW, FromNullW, T
         }
     }
     /// Removes the edge (if it exists).
-    /// If this leaves a floating node, any internal resources allocated to that node are gc'd.
-    pub fn del_edge(&mut self, edge: Edge<FromNodeW, FromNullW, ToNodeW, ToNullW>) {
-        // TODO: implement
+    /// Returns true if the edge was previously present
+    pub fn del_edge(&mut self, edge: Edge<FromNodeW, FromNullW, ToNodeW, ToNullW>) -> bool {
+        let from_handle = edge.from_handle();
+        match from_handle {
+            None => self.edges_from_null.remove(&edge),
+            Some(from) => match self.node_data.get_mut(&from) {
+                // The 'from' portion of the node isn't in this Dag.
+                None => false,
+                Some(node_data) => node_data.outbound.remove(&edge),
+            },
+        }
     }
 
     /// Return true if and only if `search` is reachable from (or is equal to) `base`
