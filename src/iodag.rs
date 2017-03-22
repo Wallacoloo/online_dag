@@ -71,7 +71,7 @@ pub struct Edge<FromNodeW, FromNullW, ToNodeW, ToNullW>
     to: EdgeTo<ToNodeW, ToNullW>,
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct NodeHandle {
     index: u64,
 }
@@ -86,19 +86,84 @@ impl<N, FromNodeW, FromNullW, ToNodeW, ToNullW> IODag<N, FromNodeW, FromNullW, T
         }
     }
     pub fn new_node(&mut self, node_data: N) -> NodeHandle {
-        let old_counter = self.node_counter;
+        let handle = NodeHandle {
+            index: self.node_counter,
+        };
         self.node_counter = self.node_counter+1;
-        NodeHandle {
-            index: old_counter,
-        }
+        // Create storage for the node's outgoing edges
+        // Panic if the NodeHandle was somehow already in use.
+        assert!(self.node_data.insert(handle, NodeData::new(node_data)).is_none());
+        handle
     }
     pub fn add_edge(&mut self, edge: Edge<FromNodeW, FromNullW, ToNodeW, ToNullW>) -> Result<(), ()> {
-        // TODO: implement
-        Ok(())
+        let from_handle = edge.from_handle();
+        let to_handle = edge.to_handle();
+        let safe_to_add = match from_handle {
+            // Edges from Null cannot cycle
+            None => true,
+            Some(from) => match to_handle {
+                // Edges to Null cannot cycle
+                None => true,
+                // if we can reach 'from' via 'to', then connecting from -> to creates cycle.
+                Some(to) => !self.is_reachable(from, to),
+            }
+        };
+
+        if safe_to_add {
+            match from_handle {
+                None => self.edges_from_null.insert(edge),
+                Some(from) => self.node_data.get_mut(&from).unwrap().outbound.insert(edge),
+            };
+            Ok(())
+        } else {
+            Err(())
+        }
     }
     /// Removes the edge (if it exists).
     /// If this leaves a floating node, any internal resources allocated to that node are gc'd.
     pub fn del_edge(&mut self, edge: Edge<FromNodeW, FromNullW, ToNodeW, ToNullW>) {
         // TODO: implement
+    }
+
+    /// Return true if and only if `search` is reachable from (or is equal to) `base`
+    fn is_reachable(&self, search: NodeHandle, base: NodeHandle) -> bool {
+        (base == search) || self.node_data[&base].outbound.iter().any(|edge| {
+            match edge.to_handle() {
+                // Edge to Null
+                None => false,
+                Some(node_handle) => self.is_reachable(search, node_handle),
+            }
+        })
+    }
+}
+
+
+
+impl<N, FromNodeW, FromNullW, ToNodeW, ToNullW> NodeData<N, FromNodeW, FromNullW, ToNodeW, ToNullW>
+    where FromNodeW: Hash + Eq + PartialEq, FromNullW: Hash + Eq + PartialEq, ToNodeW: Hash + Eq + PartialEq, ToNullW: Hash + Eq + PartialEq {
+    fn new(node_data: N) -> Self {
+        Self {
+            data: node_data,
+            outbound: HashSet::new(),
+        }
+    }
+}
+
+
+impl<FromNodeW, FromNullW, ToNodeW, ToNullW> Edge<FromNodeW, FromNullW, ToNodeW, ToNullW>
+    where FromNodeW: Hash + Eq + PartialEq, FromNullW: Hash + Eq + PartialEq, ToNodeW: Hash + Eq + PartialEq, ToNullW: Hash + Eq + PartialEq {
+    /// Return the NodeHandle that this edge points from, or None if it points from Null.
+    fn from_handle(&self) -> Option<NodeHandle> {
+        match self.from {
+            EdgeFrom::Null(_) => None,
+            EdgeFrom::Node(ref from_node) => Some(from_node.node),
+        }
+    }
+    /// Return the NodeHandle that this edge points to, or None if it points to Null.
+    fn to_handle(&self) -> Option<NodeHandle> {
+        match self.to {
+            EdgeTo::Null(_) => None,
+            EdgeTo::Node(ref to_node) => Some(to_node.node),
+        }
     }
 }
