@@ -109,6 +109,25 @@ impl<N, W> IODag<N, W>
     }
 }
 
+impl<W> Edge<W> {
+    pub fn new(from: Option<NodeHandle>, to: Option<NodeHandle>, weight: W) -> Self {
+        Edge {
+            from: from,
+            to: to,
+            weight: weight,
+        }
+    }
+    pub fn from(&self) -> &Option<NodeHandle> {
+        &self.from
+    }
+    pub fn to(&self) -> &Option<NodeHandle> {
+        &self.to
+    }
+    pub fn weight(&self) -> &W {
+        &self.weight
+    }
+}
+
 impl<W> EdgeSet<W>
     where W: Hash + Eq + PartialEq {
     fn new() -> Self {
