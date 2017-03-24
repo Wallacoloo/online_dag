@@ -3,6 +3,7 @@
 
 
 use std::collections::{HashMap, HashSet};
+use std::collections::hash_map;
 use std::hash::Hash;
 
 /// N=Node Data
@@ -59,7 +60,10 @@ impl<N, W> IODag<N, W>
         self.node_data.keys()
     }
     pub fn iter_edges<'a>(&'a self) -> impl Iterator<Item=&Edge<W>> + 'a {
-        self.edges.iter().flat_map(|(node, edges)| {
+        // Note: we DON'T duplicate any edges here;
+        // This captures all outbound edges, which handles the edge cases correctly (edges leaving
+        // NULL AND edges leaving * and entering NULL).
+        self.edges.iter().flat_map(|(_node, edges)| {
             edges.outbound.iter()
         })
     }
@@ -94,6 +98,28 @@ impl<N, W> IODag<N, W>
         } else {
             Err(())
         }
+    }
+    /// Removes the node (if it exists)
+    /// Errors if the node has incoming or outgoing edges.
+    pub fn del_node(&mut self, node: NodeHandle) -> Result<(), ()> {
+        let ok_to_delete = match self.edges.entry(Some(node)) {
+            // Already deleted
+            hash_map::Entry::Vacant(_) => Ok(()),
+            hash_map::Entry::Occupied(entry) => {
+                if entry.get().is_empty() {
+                    entry.remove();
+                    Ok(())
+                } else {
+                    // Node has edges
+                    Err(())
+                }
+            }
+        };
+        if let Ok(_) = ok_to_delete {
+            // delete the data associated with this node
+            self.node_data.remove(&node);
+        }
+        ok_to_delete
     }
     /// Removes the edge (if it exists).
     pub fn del_edge(&mut self, edge: Edge<W>) {
@@ -143,5 +169,8 @@ impl<W> EdgeSet<W>
             outbound: HashSet::new(),
             inbound: HashSet::new(),
         }
+    }
+    fn is_empty(&self) -> bool {
+        self.outbound.is_empty()
     }
 }
