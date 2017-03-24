@@ -1,4 +1,4 @@
-/// IODag is DAG where every modification is enforced.
+/// IODagFull is DAG where every modification is enforced.
 /// However, edges are allowed to have one end at null.
 /// There are InEdges, in which the `from` component is null,
 /// and OutEdges, in which the `to` component is null.
@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 /// W=Weight
-pub struct IODag<N, FromNodeW, FromNullW, ToNodeW, ToNullW>
+pub struct IODagFull<N, FromNodeW, FromNullW, ToNodeW, ToNullW>
     where FromNodeW: Hash + Eq + PartialEq, FromNullW: Hash + Eq + PartialEq, ToNodeW: Hash + Eq + PartialEq, ToNullW: Hash + Eq + PartialEq {
     /// To create unique NodeHandles, we just assign them unique u64's from this counter.
     node_counter: u64,
@@ -76,10 +76,10 @@ pub struct NodeHandle {
     index: u64,
 }
 
-impl<N, FromNodeW, FromNullW, ToNodeW, ToNullW> IODag<N, FromNodeW, FromNullW, ToNodeW, ToNullW>
+impl<N, FromNodeW, FromNullW, ToNodeW, ToNullW> IODagFull<N, FromNodeW, FromNullW, ToNodeW, ToNullW>
     where FromNodeW: Hash + Eq + PartialEq, FromNullW: Hash + Eq + PartialEq, ToNodeW: Hash + Eq + PartialEq, ToNullW: Hash + Eq + PartialEq {
     pub fn new() -> Self {
-        IODag {
+        IODagFull {
             node_counter: 0,
             node_data : HashMap::new(),
             edges_from_null: HashSet::new(),
