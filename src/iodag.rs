@@ -55,6 +55,14 @@ impl<N, W> IODag<N, W>
     pub fn iter_inbound_edges<'a>(&'a self, node: Option<NodeHandle>) -> impl Iterator<Item=&Edge<W>> + 'a {
         self.edges[&node].inbound.iter()
     }
+    pub fn iter_nodes<'a>(&'a self) -> impl Iterator<Item=&NodeHandle> + 'a {
+        self.node_data.keys()
+    }
+    pub fn iter_edges<'a>(&'a self) -> impl Iterator<Item=&Edge<W>> + 'a {
+        self.edges.iter().flat_map(|(node, edges)| {
+            edges.outbound.iter()
+        })
+    }
     pub fn add_node(&mut self, node_data: N) -> NodeHandle {
         let handle = NodeHandle {
             index: self.node_counter,
