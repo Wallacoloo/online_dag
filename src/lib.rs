@@ -4,6 +4,7 @@
 #[cfg(test)]
 mod tests;
 
+pub mod iodag;
 pub mod iodagfull;
 pub mod ondag;
 pub mod poscostdag;
