@@ -24,7 +24,8 @@ struct EdgeSet<W>
 }
 
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Edge<W> {
+pub struct Edge<W>
+    where W: Hash + Eq + PartialEq {
     from: Option<NodeHandle>,
     to: Option<NodeHandle>,
     weight: W,
@@ -80,23 +81,14 @@ impl<N, W> IODag<N, W>
         handle
     }
     pub fn add_edge(&mut self, edge: Edge<W>) -> Result<(), ()> {
-        let safe_to_add = match edge.from {
-            // Edges from Null cannot cycle
-            None => true,
-            Some(from) => match edge.to {
-                // Edges to Null cannot cycle
-                None => true,
-                // if we can reach 'from' via 'to', then connecting from -> to creates cycle.
-                Some(to) => !self.is_reachable(from, to),
-            }
-        };
+        let is_cyclic = self.is_reachable(&edge, &edge, &|_e1, _e2| true);
 
-        if safe_to_add {
+        if is_cyclic {
+            Err(())
+        } else {
             self.edges.get_mut(&edge.from).unwrap().outbound.insert(edge.clone());
             self.edges.get_mut(&edge.to).unwrap().inbound.insert(edge);
             Ok(())
-        } else {
-            Err(())
         }
     }
     /// Removes the node (if it exists)
@@ -131,19 +123,31 @@ impl<N, W> IODag<N, W>
         }
     }
 
-    /// Return true if and only if `search` is reachable from (or is equal to) `base`
-    fn is_reachable(&self, search: NodeHandle, base: NodeHandle) -> bool {
-        (base == search) || self.edges[&Some(base)].outbound.iter().any(|edge| {
-            match edge.to {
-                // Edge to Null
-                None => false,
-                Some(node_handle) => self.is_reachable(search, node_handle),
-            }
-        })
+    /// F(edge_in, edge_out) should return true if and only if edge_out would be reachable from
+    /// edge_in, where edge_in.to() == edge_out.from().
+    /// Note that edge_out might not actually exist IN the DAG yet (as it could be a proposed new
+    /// edge).
+    /// F is only relevant if not every edge exiting a node is reachable from all edges entering it
+    fn is_reachable<F>(&self, search: &Edge<W>, base: &Edge<W>, is_connected: &F) -> bool
+        where F : Fn(&Edge<W>, &Edge<W>) -> bool
+    {
+        // if the base is an output, no edges are reachable.
+        base.to().is_some() && (
+            // do we have (base -> [Node] -> search) and Node passes the connection?
+            (base.to() == search.from() && is_connected(base, search)) ||
+            // else, recurse for all reachable nodes.
+            self.edges[base.to()].outbound.iter()
+                // only consider the edges leaving base.to() that are reachable from base.
+                .filter(|edge| edge.to().is_some() && is_connected(base, edge))
+                .any(|edge| {
+                    self.is_reachable(search, edge, is_connected)
+                })
+            )
     }
 }
 
-impl<W> Edge<W> {
+impl<W> Edge<W>
+    where W: Hash + Eq + PartialEq {
     pub fn new(from: Option<NodeHandle>, to: Option<NodeHandle>, weight: W) -> Self {
         Edge {
             from: from,
