@@ -163,8 +163,8 @@ impl<N, W> IODag<N, W>
     /// then we will traverse all paths reachable from that edge as well.
     /// 
     /// The order of traversal is not defined, and some edges may be visited more than once.
-    pub fn traverse<F>(&self, pred: &F)
-        where F: Fn(&Edge<W>) -> bool
+    pub fn traverse<F>(&self, pred: &mut F)
+        where F: FnMut(&Edge<W>) -> bool
     {
         for edge in self.edges[&None].outbound.iter() {
             if pred(edge) {
@@ -172,8 +172,8 @@ impl<N, W> IODag<N, W>
             }
         }
     }
-    fn traverse_from<F>(&self, edge: &Edge<W>, pred: &F)
-        where F: Fn(&Edge<W>) -> bool
+    fn traverse_from<F>(&self, edge: &Edge<W>, pred: &mut F)
+        where F: FnMut(&Edge<W>) -> bool
     {
         for new_edge in self.edges[edge.to()].outbound.iter() {
             if pred(new_edge) {
