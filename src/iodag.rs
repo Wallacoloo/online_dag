@@ -83,7 +83,7 @@ impl<N, W> IODag<N, W>
         handle
     }
     pub fn add_edge<F>(&mut self, edge: Edge<W>, reachable_pred: &F) -> Result<(), ()>
-        where F : Fn(&Edge<W>, &Edge<W>) -> bool
+        where F: Fn(&Edge<W>, &Edge<W>) -> bool
     {
         self.can_add_edge(&edge, reachable_pred).and_then(|ok| {
             self.add_edge_unchecked(edge);
@@ -95,7 +95,7 @@ impl<N, W> IODag<N, W>
         self.edges.get_mut(&edge.to).unwrap().inbound.insert(edge);
     }
     pub fn can_add_edge<F>(&self, edge: &Edge<W>, reachable_pred: &F) -> Result<(), ()>
-        where F : Fn(&Edge<W>, &Edge<W>) -> bool
+        where F: Fn(&Edge<W>, &Edge<W>) -> bool
     {
         let is_cyclic = self.is_reachable(&edge, &edge, reachable_pred);
 
@@ -143,7 +143,7 @@ impl<N, W> IODag<N, W>
     /// edge).
     /// F is only relevant if not every edge exiting a node is reachable from all edges entering it
     fn is_reachable<F>(&self, search: &Edge<W>, base: &Edge<W>, reachable_pred: &F) -> bool
-        where F : Fn(&Edge<W>, &Edge<W>) -> bool
+        where F: Fn(&Edge<W>, &Edge<W>) -> bool
     {
         // if the base is an output, no edges are reachable.
         base.to().is_some() && (
@@ -157,6 +157,29 @@ impl<N, W> IODag<N, W>
                     self.is_reachable(search, edge, reachable_pred)
                 })
             )
+    }
+    /// Iterate edge by edge starting from edges from null.
+    /// For each edge, call `pred`. If `pred(edge)` returns true,
+    /// then we will traverse all paths reachable from that edge as well.
+    /// 
+    /// The order of traversal is not defined, and some edges may be visited more than once.
+    pub fn traverse<F>(&self, pred: &F)
+        where F: Fn(&Edge<W>) -> bool
+    {
+        for edge in self.edges[&None].outbound.iter() {
+            if pred(edge) {
+                self.traverse_from(edge, pred);
+            }
+        }
+    }
+    fn traverse_from<F>(&self, edge: &Edge<W>, pred: &F)
+        where F: Fn(&Edge<W>) -> bool
+    {
+        for new_edge in self.edges[edge.to()].outbound.iter() {
+            if pred(new_edge) {
+                self.traverse_from(new_edge, pred);
+            }
+        }
     }
 }
 
