@@ -83,7 +83,7 @@ impl<N, W> IODag<N, W>
         handle
     }
     pub fn add_edge<F>(&mut self, edge: Edge<W>, reachable_pred: &F) -> Result<(), ()>
-        where F : Fn(&Edge<W>, &Edge<W>, &Self) -> bool
+        where F : Fn(&Edge<W>, &Edge<W>) -> bool
     {
         self.can_add_edge(&edge, reachable_pred).and_then(|ok| {
             self.add_edge_unchecked(edge);
@@ -95,7 +95,7 @@ impl<N, W> IODag<N, W>
         self.edges.get_mut(&edge.to).unwrap().inbound.insert(edge);
     }
     pub fn can_add_edge<F>(&self, edge: &Edge<W>, reachable_pred: &F) -> Result<(), ()>
-        where F : Fn(&Edge<W>, &Edge<W>, &Self) -> bool
+        where F : Fn(&Edge<W>, &Edge<W>) -> bool
     {
         let is_cyclic = self.is_reachable(&edge, &edge, reachable_pred);
 
@@ -143,16 +143,16 @@ impl<N, W> IODag<N, W>
     /// edge).
     /// F is only relevant if not every edge exiting a node is reachable from all edges entering it
     fn is_reachable<F>(&self, search: &Edge<W>, base: &Edge<W>, reachable_pred: &F) -> bool
-        where F : Fn(&Edge<W>, &Edge<W>, &Self) -> bool
+        where F : Fn(&Edge<W>, &Edge<W>) -> bool
     {
         // if the base is an output, no edges are reachable.
         base.to().is_some() && (
             // do we have (base -> [Node] -> search) and Node passes the connection?
-            (base.to() == search.from() && reachable_pred(base, search, &self)) ||
+            (base.to() == search.from() && reachable_pred(base, search)) ||
             // else, recurse for all reachable nodes.
             self.edges[base.to()].outbound.iter()
                 // only consider the edges leaving base.to() that are reachable from base.
-                .filter(|edge| edge.to().is_some() && reachable_pred(base, edge, &self))
+                .filter(|edge| edge.to().is_some() && reachable_pred(base, edge))
                 .any(|edge| {
                     self.is_reachable(search, edge, reachable_pred)
                 })
