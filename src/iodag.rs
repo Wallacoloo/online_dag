@@ -85,13 +85,23 @@ impl<N, W> IODag<N, W>
     pub fn add_edge<F>(&mut self, edge: Edge<W>, reachable_pred: &F) -> Result<(), ()>
         where F : Fn(&Edge<W>, &Edge<W>, &Self) -> bool
     {
+        self.can_add_edge(&edge, reachable_pred).and_then(|ok| {
+            self.add_edge_unchecked(edge);
+            Ok(ok)
+        })
+    }
+    pub fn add_edge_unchecked(&mut self, edge: Edge<W>) {
+        self.edges.get_mut(&edge.from).unwrap().outbound.insert(edge.clone());
+        self.edges.get_mut(&edge.to).unwrap().inbound.insert(edge);
+    }
+    pub fn can_add_edge<F>(&self, edge: &Edge<W>, reachable_pred: &F) -> Result<(), ()>
+        where F : Fn(&Edge<W>, &Edge<W>, &Self) -> bool
+    {
         let is_cyclic = self.is_reachable(&edge, &edge, reachable_pred);
 
         if is_cyclic {
             Err(())
         } else {
-            self.edges.get_mut(&edge.from).unwrap().outbound.insert(edge.clone());
-            self.edges.get_mut(&edge.to).unwrap().inbound.insert(edge);
             Ok(())
         }
     }
